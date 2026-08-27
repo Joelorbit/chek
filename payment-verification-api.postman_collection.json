@@ -1,0 +1,1005 @@
+{
+  "info": {
+    "name": "Payment Verification API",
+    "description": "Workspace-aware Payment Verification API. Covers smart universal verification, CBE (legacy FT + suffix and new token/full-receipt), Telebirr, Dashen, Bank of Abyssinia, CBE Birr, M-Pesa, image verification, batch verification, plus workspace admin (keys, stats, tier/credits), payment links, products, and webhook management.",
+    "version": "4.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "x-api-key",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{API_KEY}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "https://verifyapi.leulzenebe.pro",
+      "type": "string"
+    },
+    {
+      "key": "API_KEY",
+      "value": "YOUR_API_KEY_HERE",
+      "type": "string"
+    },
+    {
+      "key": "ADMIN_KEY",
+      "value": "YOUR_ADMIN_KEY_HERE",
+      "type": "string"
+    },
+    {
+      "key": "API_KEY_ID",
+      "value": "OPTIONAL_API_KEY_ID_FOR_ADMIN_PROXY",
+      "type": "string"
+    },
+    {
+      "key": "WORKSPACE_ID",
+      "value": "OPTIONAL_WORKSPACE_ID",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & Info",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/health",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Check if the API is running properly. No API key required."
+          },
+          "response": []
+        },
+        {
+          "name": "API Information",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                ""
+              ]
+            },
+            "description": "Get information about the API and available endpoints."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Universal Verification",
+      "item": [
+        {
+          "name": "Verify Universal Payment (Smart Router)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"CJU5RZ5NM3\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/verify",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify"
+              ]
+            },
+            "description": "Smart router that dynamically detects the payment provider (CBE, Telebirr, Dashen, Bank of Abyssinia, CBE Birr) based on the reference number structure and payload. Also accepts CBE receipt URLs (e.g. https://mbreciept.cbe.com.et/abc123). Optional 'suffix' for CBE FT references; optional 'phoneNumber' for CBE Birr."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "CBE Verification",
+      "item": [
+        {
+          "name": "Verify CBE Payment (POST, legacy FT)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"FT2513001V2G\",\n  \"accountSuffix\": \"39003377\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/verify-cbe",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-cbe"
+              ]
+            },
+            "description": "Verify a legacy CBE FT reference. accountSuffix is REQUIRED for legacy FT references (last 8 digits of the payee account)."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify CBE Payment (POST, new receipt URL/token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"https://mbreciept.cbe.com.et/fHCxyUdnBt2PA0H8ge\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/verify-cbe",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-cbe"
+              ]
+            },
+            "description": "Verify a new CBE receipt using the full receipt URL or the token after the slash. No accountSuffix is required for new-style references."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify CBE Payment (GET, legacy FT)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/verify-cbe?reference=FT2513001V2G&accountSuffix=39003377",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-cbe"
+              ],
+              "query": [
+                {
+                  "key": "reference",
+                  "value": "FT2513001V2G"
+                },
+                {
+                  "key": "accountSuffix",
+                  "value": "39003377"
+                }
+              ]
+            },
+            "description": "Verify a legacy CBE payment using query parameters. accountSuffix is required."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify CBE Payment (GET, new receipt URL)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/verify-cbe?reference=https://mbreciept.cbe.com.et/fHCxyUdnBt2PA0H8ge",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-cbe"
+              ],
+              "query": [
+                {
+                  "key": "reference",
+                  "value": "https://mbreciept.cbe.com.et/fHCxyUdnBt2PA0H8ge"
+                }
+              ]
+            },
+            "description": "Verify a new CBE receipt using the receipt URL."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Telebirr Verification",
+      "item": [
+        {
+          "name": "Verify Telebirr Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"CJU5RZ5NM3\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/verify-telebirr",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-telebirr"
+              ]
+            },
+            "description": "Verify a Telebirr payment by receipt number. Response wraps the upstream data under { success, data: { payerName, payerTelebirrNo, creditedPartyName, creditedPartyAccountNo, transactionStatus, receiptNo, paymentDate, settledAmount, serviceFee, serviceFeeVAT, totalPaidAmount, ... } }."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Dashen Verification",
+      "item": [
+        {
+          "name": "Verify Dashen Payment (POST)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"DASHEN_REFERENCE_NUMBER\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/verify-dashen",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-dashen"
+              ]
+            },
+            "description": "Verify a Dashen bank transaction using reference number."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Dashen Payment (GET)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/verify-dashen?reference=DASHEN_REFERENCE_NUMBER",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-dashen"
+              ],
+              "query": [
+                {
+                  "key": "reference",
+                  "value": "DASHEN_REFERENCE_NUMBER"
+                }
+              ]
+            },
+            "description": "Verify a Dashen bank transaction using query parameters."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Abyssinia Verification",
+      "item": [
+        {
+          "name": "Verify Abyssinia Payment (POST)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"ABYSSINIA_REFERENCE\",\n  \"suffix\": \"12345\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/verify-abyssinia",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-abyssinia"
+              ]
+            },
+            "description": "Verify an Abyssinia bank transaction. Suffix must be exactly 5 digits."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Abyssinia Payment (GET)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/verify-abyssinia?reference=ABYSSINIA_REFERENCE&suffix=12345",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-abyssinia"
+              ],
+              "query": [
+                {
+                  "key": "reference",
+                  "value": "ABYSSINIA_REFERENCE"
+                },
+                {
+                  "key": "suffix",
+                  "value": "12345"
+                }
+              ]
+            },
+            "description": "Verify an Abyssinia bank transaction using query parameters."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "CBE Birr Verification",
+      "item": [
+        {
+          "name": "Verify CBE Birr Payment (POST)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiptNumber\": \"CJU5RZ5NM3\",\n  \"phoneNumber\": \"251912345678\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/verify-cbebirr",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-cbebirr"
+              ]
+            },
+            "description": "Verify a CBE Birr wallet payment. Phone number must be 12 digits (251 + 9 digits). Auth is enforced via x-api-key (or Authorization: Bearer)."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify CBE Birr Payment (GET)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/verify-cbebirr?receiptNumber=CJU5RZ5NM3&phoneNumber=251912345678",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-cbebirr"
+              ],
+              "query": [
+                {
+                  "key": "receiptNumber",
+                  "value": "CJU5RZ5NM3"
+                },
+                {
+                  "key": "phoneNumber",
+                  "value": "251912345678"
+                }
+              ]
+            },
+            "description": "Verify a CBE Birr payment using query parameters."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "M-Pesa Verification",
+      "item": [
+        {
+          "name": "Verify M-Pesa Payment (POST)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"UBD7H45TBL\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/verify-mpesa",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-mpesa"
+              ]
+            },
+            "description": "Verify an M-Pesa transaction using reference number."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify M-Pesa Payment (GET)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/verify-mpesa?reference=UBD7H45TBL",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-mpesa"
+              ],
+              "query": [
+                {
+                  "key": "reference",
+                  "value": "UBD7H45TBL"
+                }
+              ]
+            },
+            "description": "Verify an M-Pesa transaction using query parameters."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Image Verification",
+      "item": [
+        {
+          "name": "Verify Payment by Image (auto-detect)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/receipt/image.jpg"
+                },
+                {
+                  "key": "suffix",
+                  "value": "39003377",
+                  "description": "Required for CBE receipts - last 8 digits of account",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/verify-image?autoVerify=true",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-image"
+              ],
+              "query": [
+                {
+                  "key": "autoVerify",
+                  "value": "true",
+                  "description": "Automatically detect receipt type and route to correct verification"
+                }
+              ]
+            },
+            "description": "Verify a payment by uploading a receipt image. Supports both CBE and Telebirr screenshots. Requires a PRO+ workspace; consumes one image credit per call."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Payment by Image (no auto-verify)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/receipt/image.jpg"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/verify-image",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-image"
+              ]
+            },
+            "description": "Upload only — no auto-verify."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Batch Verification",
+      "item": [
+        {
+          "name": "Verify Multiple Receipts (batch)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"references\": [\n    { \"reference\": \"CJU5RZ5NM3\" },\n    { \"reference\": \"FT2513001V2G\", \"suffix\": \"39003377\" },\n    { \"reference\": \"FT252195GT6N\", \"suffix\": \"75434\" },\n    { \"reference\": \"CJU5RZ5NM3\", \"phoneNumber\": \"251912345678\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/verify-batch",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "verify-batch"
+              ]
+            },
+            "description": "Verify up to 20 references in a single request. Requires a PRO or BUSINESS workspace. Each item supports the same inputs as the universal verifier: 'reference' is required; 'suffix' is needed for CBE FT references; 'phoneNumber' is needed for CBE Birr."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Checkout Sessions",
+      "item": [
+        {
+          "name": "Create Checkout Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pro Plan\",\n  \"customAmount\": 199,\n  \"acceptedProviders\": [\"telebirr\"],\n  \"payoutAccountIds\": [\"{{PAYOUT_ACCOUNT_ID}}\"],\n  \"redirectUrl\": \"https://merchant.example/thanks\",\n  \"expiresInMinutes\": 60\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/payment-links",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment-links"
+              ]
+            },
+            "description": "Create a payment link. PRO+ feature. Use product-based links or custom amount links with payoutAccountIds."
+          },
+          "response": []
+        },
+        {
+          "name": "List Payment Links",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payment-links",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment-links"
+              ]
+            },
+            "description": "List payment links for the calling workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment Link",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payment-links/PAYMENT_LINK_ID",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment-links",
+                "PAYMENT_LINK_ID"
+              ]
+            },
+            "description": "Fetch one payment link by ID."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Webhooks Management",
+      "item": [
+        {
+          "name": "Register Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://merchant.example/hooks/verifier\",\n  \"events\": [\"verification.success\", \"verification.failed\"],\n  \"apiKeyIds\": []\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/webhooks",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "webhooks"
+              ]
+            },
+            "description": "Register a webhook for verification events. apiKeyIds is an array of API key IDs the webhook applies to; empty array means all keys in the workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "List Webhooks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/webhooks",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "webhooks"
+              ]
+            },
+            "description": "List all webhooks for the calling workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Webhook",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/webhooks/WEBHOOK_ID",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "webhooks",
+                "WEBHOOK_ID"
+              ]
+            },
+            "description": "Delete a webhook by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "List Webhook Deliveries",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/webhooks/WEBHOOK_ID/deliveries?page=1&pageSize=50",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "webhooks",
+                "WEBHOOK_ID",
+                "deliveries"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "50" }
+              ]
+            },
+            "description": "List recent delivery attempts for a webhook (paginated)."
+          },
+          "response": []
+        },
+        {
+          "name": "Retry Webhook Delivery",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/webhooks/WEBHOOK_ID/retry/DELIVERY_ID",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "webhooks",
+                "WEBHOOK_ID",
+                "retry",
+                "DELIVERY_ID"
+              ]
+            },
+            "description": "Re-fire a specific webhook delivery."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin Endpoints",
+      "item": [
+        {
+          "name": "Generate API Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-admin-key",
+                "value": "{{ADMIN_KEY}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"USER_ID_OF_OWNER\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/admin/api-keys",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "admin",
+                "api-keys"
+              ]
+            },
+            "description": "Generate a new API key. The 'owner' field is the User.id of the owner; the API resolves the user's first membership to pick a workspace. Requires admin authentication via x-admin-key."
+          },
+          "response": []
+        },
+        {
+          "name": "List API Keys",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{ADMIN_KEY}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/admin/api-keys",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "admin",
+                "api-keys"
+              ]
+            },
+            "description": "List all API keys (masked view) with their workspaceId and tier."
+          },
+          "response": []
+        },
+        {
+          "name": "Update API Key (tier / active / grandfathered)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-admin-key",
+                "value": "{{ADMIN_KEY}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tier\": \"PRO\",\n  \"isActive\": true,\n  \"grandfathered\": false\nn}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/admin/api-keys/KEY_ID",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "admin",
+                "api-keys",
+                "KEY_ID"
+              ]
+            },
+            "description": "Update tier / active / grandfathered. Tier and grandfathered are written to the owning workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "Adjust Workspace Image Credits",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-admin-key",
+                "value": "{{ADMIN_KEY}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addCredits\": 25,\n  \"setMonthly\": 100,\n  \"resetAt\": \"2026-07-01T00:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/admin/api-keys/KEY_ID/credits",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "admin",
+                "api-keys",
+                "KEY_ID",
+                "credits"
+              ]
+            },
+            "description": "Add credits, set monthly allowance, or set the reset date on the owning workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "Notify Workspace Webhooks",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-admin-key",
+                "value": "{{ADMIN_KEY}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workspaceId\": \"{{WORKSPACE_ID}}\",\n  \"event\": \"payment_link.paid\",\n  \"payload\": { \"paymentLinkId\": \"pl_123\", \"amount\": 199 }\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/admin/notify-user",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "admin",
+                "notify-user"
+              ]
+            },
+            "description": "Fire all active webhooks for a workspace subscribed to 'event' with the given payload. Workspace-scoped."
+          },
+          "response": []
+        },
+        {
+          "name": "Admin: Verify on Behalf (CBE Birr / product flow)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-admin-key",
+                "value": "{{ADMIN_KEY}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"CBE_BIRR\",\n  \"reference\": \"CJU5RZ5NM3\",\n  \"phoneNumber\": \"251912345678\",\n  \"merchantWorkspaceId\": \"{{WORKSPACE_ID}}\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/admin/verify",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "admin",
+                "verify"
+              ]
+            },
+            "description": "Verifier-internal admin verification, used by the product payment flow. For CBE_BIRR you MUST provide merchantWorkspaceId so the server can resolve the merchant's raw API key."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Usage Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{ADMIN_KEY}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/admin/stats",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "admin",
+                "stats"
+              ]
+            },
+            "description": "Aggregate platform stats: usage, success/failure ratios, average response time, payment links, webhook deliveries, workspace tier distribution, and an MRR estimate (workspaces by tier × VERITAS_PRO_PRICE / VERITAS_BUSINESS_PRICE)."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

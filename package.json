@@ -1,0 +1,50 @@
+{
+  "name": "chek",
+  "version": "3.0.3",
+  "description": "🧾 Chek — Ethiopian Payment Verification Engine & Webhook Relay",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon --watch src --exec ts-node src/index.ts",
+    "build": "prisma generate && tsc",
+    "test": "pnpm build && node --test dist/tests/*.test.js",
+    "start": "node dist/index.js",
+    "verify-cli": "ts-node scripts/test-verifier.ts",
+    "migrate-api-keys": "ts-node src/utils/migrateApiKeys.ts",
+    "migrate-keys": "ts-node src/utils/migrate-keys.ts",
+    "migrate-user-model": "ts-node src/utils/migrateToUserModel.ts",
+    "migrate-webhook-ownership": "ts-node src/utils/migrateWebhookOwnership.ts",
+    "migrate-remove-wildcard": "ts-node src/utils/migrateRemoveWildcard.ts"
+  },
+  "keywords": [],
+  "author": "Leul Zenebe",
+  "license": "ISC",
+  "dependencies": {
+    "@mistralai/mistralai": "^1.6.0",
+    "@prisma/client": "^6.8.2",
+    "@types/multer": "^1.4.12",
+    "axios": "^1.9.0",
+    "body-parser": "^2.2.0",
+    "bullmq": "^5.78.0",
+    "cheerio": "^1.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "multer": "1.4.5-lts.2",
+    "pdf-parse": "^1.1.1",
+    "prisma": "^6.8.2",
+    "puppeteer": "^24.8.2",
+    "tesseract.js": "^6.0.1",
+    "uuid": "^11.1.0",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/body-parser": "^1.19.5",
+    "@types/cors": "^2.8.18",
+    "@types/express": "^5.0.1",
+    "@types/node": "^22.15.17",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
