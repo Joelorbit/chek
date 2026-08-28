@@ -33,3 +33,6 @@ coverage/
 
 # Prisma generated artifacts (if not embedded)
 # prisma/migrations/
+
+# Local Notes
+prisma.md
