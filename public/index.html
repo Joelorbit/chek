@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧾 Chek — Ethiopian Payment Verification Engine & Web Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Lexend:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdfa',
+              100: '#ccfbf1',
+              200: '#99f6e4',
+              300: '#5eead4',
+              400: '#2dd4bf',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+              800: '#115e59',
+              900: '#134e4a',
+              950: '#042f2e',
+            },
+            dark: {
+              bg: '#070A10',
+              card: '#0F172A',
+              cardHover: '#131F37',
+              border: '#1E293B',
+              borderLight: '#334155'
+            }
+          },
+          fontFamily: {
+            heading: ['Outfit', 'sans-serif'],
+            body: ['Lexend', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="bg-dark-bg text-slate-100 font-body antialiased min-h-screen flex flex-col selection:bg-brand-500 selection:text-white">
+
+  <!-- Glow effects -->
+  <div class="fixed top-0 left-1/4 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl pointer-events-none -z-10"></div>
+  <div class="fixed top-1/3 right-10 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -z-10"></div>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-50 border-b border-dark-border/80 bg-dark-bg/80 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-brand-500/20 ring-1 ring-white/20">
+          <span class="text-xl">🧾</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-heading font-extrabold text-xl tracking-tight text-white">Chek</span>
+            <span class="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/20">v3.0.3</span>
+          </div>
+          <p class="text-xs text-slate-400 font-medium">Ethiopian Payment Verification Engine</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="hidden md:flex items-center gap-1 bg-dark-card/60 p-1 rounded-xl border border-dark-border">
+        <button onclick="switchTab('studio')" id="tab-studio" class="nav-tab active px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 text-white bg-brand-600 shadow-sm">
+          <i data-lucide="scan" class="w-4 h-4"></i> Studio
+        </button>
+        <button onclick="switchTab('ocr')" id="tab-ocr" class="nav-tab px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 text-slate-400 hover:text-white">
+          <i data-lucide="image" class="w-4 h-4"></i> Vision OCR
+        </button>
+        <button onclick="switchTab('batch')" id="tab-batch" class="nav-tab px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 text-slate-400 hover:text-white">
+          <i data-lucide="layers" class="w-4 h-4"></i> Batch Verify
+        </button>
+        <button onclick="switchTab('checkout')" id="tab-checkout" class="nav-tab px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 text-slate-400 hover:text-white">
+          <i data-lucide="shopping-bag" class="w-4 h-4"></i> Hosted Links
+        </button>
+        <button onclick="switchTab('webhooks')" id="tab-webhooks" class="nav-tab px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 text-slate-400 hover:text-white">
+          <i data-lucide="webhook" class="w-4 h-4"></i> Webhooks
+        </button>
+        <button onclick="switchTab('docs')" id="tab-docs" class="nav-tab px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 text-slate-400 hover:text-white">
+          <i data-lucide="book-open" class="w-4 h-4"></i> API Specs
+        </button>
+      </nav>
+
+      <!-- System Status & API Key -->
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>14 Banks Active</span>
+        </div>
+        <button onclick="openApiKeyModal()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-dark-card border border-dark-border text-sm font-medium text-slate-300 hover:border-brand-500/50 hover:text-white transition-all shadow-sm">
+          <i data-lucide="key" class="w-4 h-4 text-brand-400"></i>
+          <span id="api-key-label">Set API Key</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- ── TAB 1: VERIFICATION STUDIO ────────────────────────────────────── -->
+    <section id="view-studio" class="tab-view active space-y-6">
+      
+      <!-- Top Hero / Banner -->
+      <div class="rounded-2xl p-6 sm:p-8 bg-gradient-to-br from-dark-card via-dark-card to-brand-950/30 border border-dark-border relative overflow-hidden shadow-xl">
+        <div class="absolute right-0 top-0 w-80 h-80 bg-brand-500/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="relative z-10 max-w-3xl">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs font-semibold uppercase tracking-wider mb-3">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Universal Smart Router
+          </div>
+          <h1 class="font-heading font-extrabold text-3xl sm:text-4xl text-white tracking-tight leading-tight">
+            Universal Payment Verification Studio
+          </h1>
+          <p class="text-slate-400 text-sm sm:text-base mt-2 leading-relaxed">
+            Enter any transaction reference, mobile banking token, receipt URL, or paste raw receipt SMS. Chek auto-detects the provider and verifies the settlement status instantly.
+          </p>
+        </div>
+
+        <!-- Supported Bank Badges -->
+        <div class="flex flex-wrap gap-2 mt-6 pt-6 border-t border-dark-border/60">
+          <span class="bank-pill"><span class="text-amber-400">●</span> CBE Mobile</span>
+          <span class="bank-pill"><span class="text-emerald-400">●</span> Telebirr</span>
+          <span class="bank-pill"><span class="text-purple-400">●</span> Bank of Abyssinia</span>
+          <span class="bank-pill"><span class="text-blue-400">●</span> Dashen Bank</span>
+          <span class="bank-pill"><span class="text-amber-400">●</span> CBE Birr</span>
+          <span class="bank-pill"><span class="text-red-400">●</span> Safaricom M-Pesa</span>
+          <span class="bank-pill"><span class="text-cyan-400">●</span> Awash Bank</span>
+          <span class="bank-pill"><span class="text-teal-400">●</span> Coop Bank</span>
+          <span class="bank-pill"><span class="text-pink-400">●</span> Hibret Bank</span>
+          <span class="bank-pill"><span class="text-indigo-400">●</span> Zemen Bank</span>
+          <span class="bank-pill"><span class="text-slate-400">●</span> Nib / Wegagen / Amhara</span>
+        </div>
+      </div>
+
+      <!-- Main Two-Column Layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Input Panel -->
+        <div class="lg:col-span-6 space-y-5">
+          <div class="bg-dark-card rounded-2xl border border-dark-border p-6 shadow-lg space-y-5">
+            
+            <!-- Mode Switch: Reference Code vs Receipt Text -->
+            <div class="flex items-center justify-between pb-3 border-b border-dark-border">
+              <div class="flex gap-2">
+                <button id="mode-ref-btn" onclick="setStudioMode('ref')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 text-white transition-all">
+                  Reference / URL
+                </button>
+                <button id="mode-text-btn" onclick="setStudioMode('text')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white bg-dark-bg transition-all">
+                  Paste Receipt Text
+                </button>
+              </div>
+              <div id="detection-badge" class="flex items-center gap-1.5 text-xs font-mono font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+                <span>Auto-Detecting...</span>
+              </div>
+            </div>
+
+            <!-- Reference / URL Input Mode -->
+            <div id="studio-ref-mode" class="space-y-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1.5">
+                  Transaction Reference, Token, or Receipt URL <span class="text-rose-400">*</span>
+                </label>
+                <div class="relative">
+                  <input
+                    type="text"
+                    id="input-reference"
+                    placeholder="e.g. AB12CD34EF, FT23062669JJ90172, or https://mbreciept.cbe.com.et/..."
+                    class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-3 text-sm font-mono text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all"
+                    oninput="handleReferenceInput(this.value)"
+                  />
+                  <button onclick="clearReferenceInput()" class="absolute right-3 top-3 text-slate-500 hover:text-slate-300">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Dynamic Extra Fields (Suffix or Phone) -->
+              <div id="extra-fields-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3 hidden">
+                <div id="field-suffix" class="hidden">
+                  <label class="block text-xs font-medium text-slate-300 mb-1.5">
+                    Account Suffix <span id="suffix-hint" class="text-slate-500">(5 or 8 digits)</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="input-suffix"
+                    placeholder="e.g. 90172 or 12345678"
+                    class="w-full bg-dark-bg border border-dark-border rounded-xl px-3.5 py-2.5 text-sm font-mono text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
+                  />
+                </div>
+                <div id="field-phone" class="hidden">
+                  <label class="block text-xs font-medium text-slate-300 mb-1.5">
+                    CBE Birr Phone Number <span class="text-slate-500">(251...)</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="input-phone"
+                    placeholder="251911223344"
+                    class="w-full bg-dark-bg border border-dark-border rounded-xl px-3.5 py-2.5 text-sm font-mono text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Paste Receipt Text Mode -->
+            <div id="studio-text-mode" class="space-y-4 hidden">
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1.5">
+                  Reference Code (Optional, auto-extracted if empty)
+                </label>
+                <input
+                  type="text"
+                  id="input-text-ref"
+                  placeholder="e.g. AW123456789 or leave empty"
+                  class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 text-sm font-mono text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 mb-3"
+                />
+                <label class="block text-xs font-medium text-slate-300 mb-1.5">
+                  Raw Receipt Text / SMS Body <span class="text-rose-400">*</span>
+                </label>
+                <textarea
+                  id="input-receipt-text"
+                  rows="5"
+                  placeholder="Paste receipt SMS from Awash, Telebirr, CBE, Coop, Hibret, Zemen, etc..."
+                  class="w-full bg-dark-bg border border-dark-border rounded-xl p-3.5 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
+                  oninput="handleReceiptTextInput(this.value)"
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button
+              id="btn-verify"
+              onclick="executeStudioVerification()"
+              class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-brand-600 via-brand-500 to-cyan-500 hover:from-brand-500 hover:to-cyan-400 text-white font-semibold text-sm shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
+            >
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+              <span>Verify Transaction</span>
+            </button>
+
+            <!-- Quick Demo Presets -->
+            <div class="pt-4 border-t border-dark-border">
+              <span class="text-xs font-medium text-slate-400 block mb-2">⚡ Quick Sample Presets:</span>
+              <div class="flex flex-wrap gap-2">
+                <button onclick="fillPreset('telebirr')" class="preset-btn">Telebirr (AB12CD34EF)</button>
+                <button onclick="fillPreset('abyssinia')" class="preset-btn">BoA Slip (FT23062669JJ 90172)</button>
+                <button onclick="fillPreset('dashen')" class="preset-btn">Dashen (3123456789012345)</button>
+                <button onclick="fillPreset('awash')" class="preset-btn">Awash Text Receipt</button>
+                <button onclick="fillPreset('cbe')" class="preset-btn">CBE Mobile URL</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Output Panel -->
+        <div class="lg:col-span-6 space-y-5">
+          <div class="bg-dark-card rounded-2xl border border-dark-border p-6 shadow-lg min-h-[460px] flex flex-col">
+            
+            <div class="flex items-center justify-between pb-3 border-b border-dark-border mb-4">
+              <div class="flex items-center gap-2">
+                <i data-lucide="receipt" class="w-4 h-4 text-brand-400"></i>
+                <h3 class="font-heading font-bold text-white text-sm">Verification Results</h3>
+              </div>
+              <div id="exec-timer" class="text-xs font-mono text-slate-400">Ready</div>
+            </div>
+
+            <!-- Initial Idle State -->
+            <div id="result-idle" class="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
+              <div class="w-16 h-16 rounded-2xl bg-dark-bg border border-dark-border flex items-center justify-center text-3xl">
+                🧾
+              </div>
+              <h4 class="font-heading font-semibold text-slate-200">No Transaction Queried</h4>
+              <p class="text-xs text-slate-400 max-w-sm">
+                Enter a reference or select a quick preset on the left, then click <strong class="text-brand-400">Verify Transaction</strong> to see parsed financial details.
+              </p>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="result-loading" class="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-4 hidden">
+              <div class="relative">
+                <div class="w-12 h-12 rounded-full border-2 border-brand-500/20 border-t-brand-500 animate-spin"></div>
+              </div>
+              <div>
+                <h4 class="font-heading font-semibold text-white">Querying Gateway...</h4>
+                <p class="text-xs text-slate-400 mt-1">Inspecting reference patterns and gateway status</p>
+              </div>
+            </div>
+
+            <!-- Rendered Receipt Card -->
+            <div id="result-success" class="flex-1 flex flex-col space-y-4 hidden">
+              
+              <!-- Top Badge Header -->
+              <div class="rounded-xl p-4 bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <i data-lucide="check" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <span id="res-provider" class="text-xs font-bold font-mono uppercase text-emerald-400">TELEBIRR</span>
+                    <h4 class="text-sm font-heading font-bold text-white">Transaction Verified</h4>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span class="text-xs text-slate-400 block">Amount</span>
+                  <span id="res-amount" class="text-lg font-heading font-extrabold text-emerald-400">0.00 ETB</span>
+                </div>
+              </div>
+
+              <!-- Key Value Table -->
+              <div class="rounded-xl bg-dark-bg border border-dark-border p-4 space-y-2.5 text-xs font-mono flex-1">
+                <div class="flex justify-between py-1 border-b border-dark-border/50">
+                  <span class="text-slate-400">Reference ID:</span>
+                  <span id="res-ref" class="text-white font-bold flex items-center gap-1.5">
+                    <span>---</span>
+                    <button onclick="copyRefToClipboard()" title="Copy Reference" class="text-slate-400 hover:text-brand-400">
+                      <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-dark-border/50">
+                  <span class="text-slate-400">Payer / Sender:</span>
+                  <span id="res-payer" class="text-slate-200">---</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-dark-border/50">
+                  <span class="text-slate-400">Receiver / Credited:</span>
+                  <span id="res-receiver" class="text-slate-200">---</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-dark-border/50">
+                  <span class="text-slate-400">Transaction Status:</span>
+                  <span id="res-status" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">COMPLETED</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-dark-border/50">
+                  <span class="text-slate-400">Timestamp:</span>
+                  <span id="res-date" class="text-slate-300">---</span>
+                </div>
+                <div id="res-narrative-row" class="flex justify-between py-1 hidden">
+                  <span class="text-slate-400">Narrative / Reason:</span>
+                  <span id="res-narrative" class="text-slate-300 max-w-[200px] truncate">---</span>
+                </div>
+              </div>
+
+              <!-- Raw JSON Accordion -->
+              <details class="rounded-xl bg-dark-bg border border-dark-border p-3 text-xs">
+                <summary class="cursor-pointer font-medium text-slate-400 hover:text-white flex items-center justify-between">
+                  <span>View Raw JSON Response</span>
+                  <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                </summary>
+                <pre id="res-raw-json" class="mt-3 p-3 rounded-lg bg-slate-950 font-mono text-[11px] text-brand-300 overflow-x-auto"></pre>
+              </details>
+            </div>
+
+            <!-- Error State -->
+            <div id="result-error" class="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3 hidden">
+              <div class="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+                <i data-lucide="alert-triangle" class="w-7 h-7"></i>
+              </div>
+              <h4 class="font-heading font-semibold text-rose-400">Verification Failed</h4>
+              <p id="error-message" class="text-xs text-slate-400 max-w-sm font-mono">
+                The reference could not be verified by the upstream gateway.
+              </p>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── TAB 2: VISION OCR ─────────────────────────────────────────────── -->
+    <section id="view-ocr" class="tab-view space-y-6 hidden">
+      <div class="rounded-2xl p-6 bg-dark-card border border-dark-border shadow-xl">
+        <div class="max-w-2xl">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs font-semibold mb-3">
+            <i data-lucide="camera" class="w-3.5 h-3.5"></i> Mistral Multimodal Vision
+          </div>
+          <h2 class="font-heading font-extrabold text-2xl text-white">Receipt Screenshot OCR Verifier</h2>
+          <p class="text-slate-400 text-sm mt-1">
+            Upload any screenshot or photo of an Ethiopian mobile banking receipt. The vision engine extracts the reference and parses the transaction automatically.
+          </p>
+        </div>
+
+        <!-- Dropzone Area -->
+        <div
+          id="ocr-dropzone"
+          onclick="document.getElementById('ocr-file-input').click()"
+          class="mt-6 border-2 border-dashed border-dark-border hover:border-brand-500/50 rounded-2xl p-12 text-center bg-dark-bg/50 cursor-pointer transition-all flex flex-col items-center justify-center space-y-3"
+        >
+          <input type="file" id="ocr-file-input" accept="image/*" class="hidden" onchange="handleOcrFileSelected(this.files)" />
+          <div class="w-16 h-16 rounded-2xl bg-dark-card border border-dark-border flex items-center justify-center text-brand-400 shadow-inner">
+            <i data-lucide="upload-cloud" class="w-8 h-8"></i>
+          </div>
+          <h4 class="font-heading font-semibold text-white">Drop receipt screenshot here, or <span class="text-brand-400 underline">browse</span></h4>
+          <p class="text-xs text-slate-500">Supports PNG, JPG, WEBP screenshots from Telebirr, CBE Mobile, Awash, etc.</p>
+        </div>
+
+        <div id="ocr-preview-container" class="mt-6 hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="rounded-xl border border-dark-border p-4 bg-dark-bg flex items-center justify-center">
+            <img id="ocr-preview-img" src="" alt="Receipt Preview" class="max-h-80 rounded-lg object-contain shadow-md" />
+          </div>
+          <div class="space-y-4 flex flex-col justify-center">
+            <h4 class="font-heading font-bold text-white text-base">Extraction Ready</h4>
+            <p class="text-xs text-slate-400">Click below to send the screenshot to the OCR vision engine.</p>
+            <button onclick="runOcrVerify()" id="btn-run-ocr" class="py-3 px-4 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg">
+              <i data-lucide="sparkles" class="w-4 h-4"></i> Run Multimodal Vision OCR
+            </button>
+            <div id="ocr-status" class="text-xs font-mono text-slate-400"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TAB 3: BATCH VERIFY ───────────────────────────────────────────── -->
+    <section id="view-batch" class="tab-view space-y-6 hidden">
+      <div class="rounded-2xl p-6 bg-dark-card border border-dark-border shadow-xl space-y-6">
+        <div>
+          <h2 class="font-heading font-extrabold text-2xl text-white">Batch Transaction Verifier</h2>
+          <p class="text-slate-400 text-sm mt-1">Verify up to 100 transaction references concurrently in a single operation.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-5 space-y-4">
+            <label class="block text-xs font-medium text-slate-300">
+              Enter References (One per line, optional suffix separated by space):
+            </label>
+            <textarea
+              id="batch-input"
+              rows="8"
+              placeholder="AB12CD34EF&#10;FT23062669JJ 90172&#10;3123456789012345&#10;1234567890abcdef1234"
+              class="w-full bg-dark-bg border border-dark-border rounded-xl p-4 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
+            ></textarea>
+            <button onclick="runBatchVerification()" class="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm shadow-lg flex items-center justify-center gap-2">
+              <i data-lucide="play" class="w-4 h-4"></i> Run Concurrent Batch
+            </button>
+          </div>
+
+          <div class="lg:col-span-7 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-slate-300">Execution Results</span>
+              <div id="batch-stats" class="text-xs font-mono text-slate-400">0 Items</div>
+            </div>
+            <div id="batch-results-table" class="bg-dark-bg rounded-xl border border-dark-border p-4 min-h-[220px] max-h-96 overflow-y-auto space-y-2 text-xs font-mono">
+              <div class="text-center text-slate-500 py-10">No batch runs executed yet.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TAB 4: CHECKOUT & PAYMENT LINKS ───────────────────────────────── -->
+    <section id="view-checkout" class="tab-view space-y-6 hidden">
+      <div class="rounded-2xl p-6 bg-dark-card border border-dark-border shadow-xl space-y-6">
+        <div>
+          <h2 class="font-heading font-extrabold text-2xl text-white">Hosted Payment Links & Checkout Simulator</h2>
+          <p class="text-slate-400 text-sm mt-1">Preview how buyers interact with Chek payment links and confirm transfers.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+          <!-- Create Link Form -->
+          <div class="p-5 rounded-xl bg-dark-bg border border-dark-border space-y-4">
+            <h4 class="font-heading font-bold text-white text-sm">Create New Payment Link</h4>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Product / Invoice Title</label>
+              <input id="pl-title" type="text" value="Pro Subscription #104" class="w-full bg-dark-card border border-dark-border rounded-lg p-2 text-xs font-mono text-white" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Amount (ETB)</label>
+              <input id="pl-amount" type="number" value="750" class="w-full bg-dark-card border border-dark-border rounded-lg p-2 text-xs font-mono text-white" />
+            </div>
+            <button onclick="previewPaymentLink()" class="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow">
+              Update Live Preview
+            </button>
+          </div>
+
+          <!-- Checkout Widget Preview -->
+          <div class="p-6 rounded-2xl bg-gradient-to-b from-dark-card to-slate-900 border border-brand-500/30 shadow-2xl space-y-4 text-center">
+            <div class="w-10 h-10 mx-auto rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center text-xl">
+              🧾
+            </div>
+            <div>
+              <h3 id="prev-title" class="font-heading font-bold text-white text-base">Pro Subscription #104</h3>
+              <p class="text-xs text-slate-400 mt-0.5">Pay via Telebirr, CBE, or Bank of Abyssinia</p>
+            </div>
+            <div class="text-2xl font-heading font-extrabold text-brand-400" id="prev-amount">750.00 ETB</div>
+            
+            <div class="text-left bg-dark-bg/80 p-3.5 rounded-xl border border-dark-border text-xs space-y-2">
+              <span class="text-slate-400 block font-semibold">1. Send payment to:</span>
+              <div class="flex justify-between font-mono"><span class="text-slate-500">Telebirr:</span> <span class="text-white font-bold">251911223344</span></div>
+              <div class="flex justify-between font-mono"><span class="text-slate-500">CBE:</span> <span class="text-white font-bold">1000123456789</span></div>
+            </div>
+
+            <div class="space-y-2 text-left">
+              <label class="block text-xs text-slate-400">2. Enter your Transaction Reference:</label>
+              <input type="text" placeholder="e.g. AB12CD34EF" class="w-full bg-dark-bg border border-dark-border rounded-lg p-2 text-xs font-mono text-white" />
+              <button class="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow mt-2">
+                Confirm Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TAB 5: WEBHOOKS & SIGNATURES ──────────────────────────────────── -->
+    <section id="view-webhooks" class="tab-view space-y-6 hidden">
+      <div class="rounded-2xl p-6 bg-dark-card border border-dark-border shadow-xl space-y-6">
+        <div>
+          <h2 class="font-heading font-extrabold text-2xl text-white">Webhook Signature Tool & Relay Tester</h2>
+          <p class="text-slate-400 text-sm mt-1">
+            Test and verify cryptographic HMAC SHA-256 signatures for <code class="text-brand-400 font-mono">X-Chek-Signature</code>.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Webhook Secret Key</label>
+              <input id="wh-secret" type="text" value="whsec_demo_secret_key_12345" class="w-full bg-dark-bg border border-dark-border rounded-xl p-3 text-xs font-mono text-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Sample Event Payload (JSON)</label>
+              <textarea id="wh-payload" rows="8" class="w-full bg-dark-bg border border-dark-border rounded-xl p-3 text-xs font-mono text-brand-300">{
+  "event": "verification.success",
+  "reference": "AB12CD34EF",
+  "provider": "TELEBIRR",
+  "amount": 500.00,
+  "payer": "Abebe Kebede",
+  "timestamp": "2026-08-28T02:00:00.000Z"
+}</textarea>
+            </div>
+            <button onclick="computeHmacSignature()" class="py-2.5 px-4 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow flex items-center gap-2">
+              <i data-lucide="shield-check" class="w-4 h-4"></i> Generate Signature
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            <label class="block text-xs font-medium text-slate-300">Generated X-Chek-Signature</label>
+            <div id="wh-signature-out" class="p-4 rounded-xl bg-dark-bg border border-dark-border text-xs font-mono text-emerald-400 break-all min-h-[100px] flex items-center justify-center text-center">
+              Click Generate Signature to compute HMAC SHA-256
+            </div>
+
+            <div class="p-4 rounded-xl bg-dark-bg border border-dark-border text-xs space-y-2">
+              <span class="text-slate-400 font-semibold block">TypeScript Signature Verification Code:</span>
+              <pre class="font-mono text-[11px] text-slate-300 overflow-x-auto">import crypto from 'crypto';
+
+function verifyChekSignature(payload: string, header: string, secret: string) {
+  const hmac = crypto.createHmac('sha256', secret);
+  const digest = 'sha256=' + hmac.update(payload).digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(header), Buffer.from(digest));
+}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TAB 6: API SPECS & CODE GENERATOR ────────────────────────────── -->
+    <section id="view-docs" class="tab-view space-y-6 hidden">
+      <div class="rounded-2xl p-6 bg-dark-card border border-dark-border shadow-xl space-y-6">
+        <div>
+          <h2 class="font-heading font-extrabold text-2xl text-white">Interactive API & SDK Generator</h2>
+          <p class="text-slate-400 text-sm mt-1">Copy ready-to-use verification snippets in your favorite language.</p>
+        </div>
+
+        <div class="space-y-4">
+          <div class="flex gap-2 border-b border-dark-border pb-2">
+            <button onclick="setDocLang('ts')" id="lang-ts" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 text-white">TypeScript / Node.js</button>
+            <button onclick="setDocLang('py')" id="lang-py" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white bg-dark-bg">Python</button>
+            <button onclick="setDocLang('curl')" id="lang-curl" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white bg-dark-bg">cURL</button>
+          </div>
+
+          <pre id="doc-code-block" class="p-4 rounded-xl bg-slate-950 border border-dark-border font-mono text-xs text-brand-300 overflow-x-auto leading-relaxed"></pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- API Key Modal -->
+  <div id="modal-apikey" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-card border border-dark-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="key" class="w-5 h-5 text-brand-400"></i>
+          <h3 class="font-heading font-bold text-white text-base">Configure API Key</h3>
+        </div>
+        <button onclick="closeApiKeyModal()" class="text-slate-500 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-400">
+        Enter your Chek API key (`chk_live_...`). It will be stored in your browser's local storage and used for subsequent verification calls.
+      </p>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">API Key</label>
+        <input
+          type="password"
+          id="modal-key-input"
+          placeholder="chk_live_..."
+          class="w-full bg-dark-bg border border-dark-border rounded-xl p-3 text-xs font-mono text-white placeholder-slate-600 focus:outline-none focus:border-brand-500"
+        />
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeApiKeyModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
+        <button onclick="saveApiKey()" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow">Save Key</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="border-t border-dark-border/80 bg-dark-bg/80 py-6 mt-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2 text-xs text-slate-400">
+        <span class="text-base">🧾</span>
+        <span class="font-heading font-bold text-white">Chek</span>
+        <span>— Open-source Ethiopian Payment Verification Engine</span>
+      </div>
+      <div class="flex items-center gap-4 text-xs text-slate-500 font-mono">
+        <a href="https://github.com/Joelorbit/chek" target="_blank" class="hover:text-brand-400 flex items-center gap-1">
+          <i data-lucide="github" class="w-3.5 h-3.5"></i> GitHub
+        </a>
+        <span>•</span>
+        <a href="/DEV_DOCS.md" class="hover:text-brand-400">DEV_DOCS.md</a>
+        <span>•</span>
+        <a href="/UNDER_THE_HOOD.md" class="hover:text-brand-400">UNDER_THE_HOOD.md</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

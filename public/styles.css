@@ -1,0 +1,73 @@
+/* Chek Theme Stylesheet (EyuTheme Dark Obsidian & Teal) */
+
+:root {
+  --brand-teal: #0D9488;
+  --brand-cyan: #06B6D4;
+  --dark-bg: #070A10;
+  --dark-card: #0F172A;
+  --dark-border: #1E293B;
+}
+
+body {
+  background-color: #070A10;
+  color: #F8FAFC;
+  font-family: 'Lexend', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* Bank Pill Badges */
+.bank-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  background-color: rgba(15, 23, 42, 0.8);
+  border: 1px solid #1E293B;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: #94A3B8;
+  transition: all 0.2s ease;
+}
+
+.bank-pill:hover {
+  border-color: rgba(20, 184, 166, 0.4);
+  color: #F8FAFC;
+  transform: translateY(-1px);
+}
+
+/* Preset Buttons */
+.preset-btn {
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.5rem;
+  background-color: rgba(15, 23, 42, 0.9);
+  border: 1px solid #1E293B;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: #94A3B8;
+  transition: all 0.15s ease;
+}
+
+.preset-btn:hover {
+  background-color: rgba(13, 148, 136, 0.15);
+  border-color: rgba(20, 184, 166, 0.5);
+  color: #2DD4BF;
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #070A10;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1E293B;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}

@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -75,6 +76,10 @@ async function initializeRuntime(): Promise<void> {
 
 app.use(cors());
 app.use(express.json());
+
+// Serve public static web assets (Chek Web Console)
+app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(process.cwd(), 'public')));
 
 // Add request logging middleware
 app.use(requestLogger);
@@ -218,22 +223,28 @@ app.get('/ready', async (req: Request, res: Response) => {
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
+    if (req.accepts('html')) {
+        const indexPath = path.join(process.cwd(), 'public', 'index.html');
+        return res.sendFile(indexPath);
+    }
     res.json({
-        name: 'Payment Verification API',
+        name: '🧾 Chek — Ethiopian Payment Verification Engine',
         version: '3.0.3',
         endpoints: [
+            '/verify',
             '/verify-cbe',
             '/verify-telebirr',
             '/verify-dashen',
             '/verify-abyssinia',
             '/verify-cbebirr',
             '/verify-mpesa',
-            '/verify',
+            '/verify-batch',
             '/verify-image',
             '/products',
             '/orders',
             '/payment-links',
-            '/notifications'
+            '/notifications',
+            '/webhooks'
         ]
     });
 });
