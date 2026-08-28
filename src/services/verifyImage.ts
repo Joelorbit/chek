@@ -5,7 +5,9 @@ import multer from "multer";
 import logger from "../utils/logger";
 import { verifyTelebirr } from "./verifyTelebirr";
 import { verifyCBE } from "./verifyCBE";
-import { prisma } from "../utils/prisma";
+import { db } from "../db";
+import { workspaces } from "../db/schema";
+import { eq, and, gt, sql } from "drizzle-orm";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -16,10 +18,9 @@ type ResolvedAccount = { creditHolder: 'workspace'; creditHolderId: string } | u
 
 async function refundCredit(account: ResolvedAccount): Promise<void> {
     if (!account?.creditHolderId) return;
-    await prisma.workspace.update({
-        where: { id: account.creditHolderId },
-        data: { imageCredits: { increment: 1 } },
-    });
+    await db.update(workspaces)
+        .set({ imageCredits: sql`${workspaces.imageCredits} + 1` })
+        .where(eq(workspaces.id, account.creditHolderId));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -54,24 +55,11 @@ export const verifyImageHandler = [
             // by a concurrent request since the gate ran — return 402.
             //
             // resolvedAccount is set by verifyImageGate and points at the
-            // owning workspace where image credits now live.
             const resolvedAccount = (req as any).resolvedAccount as ResolvedAccount;
-
             if (resolvedAccount?.creditHolderId) {
-                const result = await prisma.workspace.updateMany({
-                    where: { id: resolvedAccount.creditHolderId, imageCredits: { gt: 0 } },
-                    data: { imageCredits: { decrement: 1 } },
-                });
-                const decrementCount = result.count;
-
-                if (decrementCount === 0) {
-                    if (req.file?.path) fs.unlinkSync(req.file.path);
-                    res.status(402).json({
-                        error: "Out of image credits. Top up at veritas.et/dashboard/billing",
-                        topUp: "https://veritas.et/dashboard/billing",
-                    });
-                    return;
-                }
+                await db.update(workspaces)
+                    .set({ imageCredits: sql`${workspaces.imageCredits} - 1` })
+                    .where(and(eq(workspaces.id, resolvedAccount.creditHolderId), gt(workspaces.imageCredits, 0)));
             }
 
             // ── 3. Call Mistral Vision ────────────────────────────────────────

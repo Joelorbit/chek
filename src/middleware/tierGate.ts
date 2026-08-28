@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { prisma } from '../utils/prisma';
+import { db } from '../db';
+import { workspaces } from '../db/schema';
+import { eq, and, gte, sql } from 'drizzle-orm';
 import { getWorkspaceContext } from '../utils/workspaceContext';
 import {
   addMonths,
@@ -17,9 +19,6 @@ const APP_URL = process.env.VERITAS_APP_URL ?? 'https://veritas.et';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Resolve the effective plan data for a request from workspace context.
- */
 function resolveAccount(req: Request): {
   tier: WorkspaceTier;
   grandfathered: boolean;
@@ -80,9 +79,9 @@ async function syncWorkspacePlanState(
   const freeImageCredits = getMonthlyImageCredits('FREE', billingConfig);
 
   if (account.tier !== 'FREE' && account.paidUntil && now >= account.paidUntil) {
-    const downgraded = await prisma.workspace.update({
-      where: { id: account.creditHolderId },
-      data: {
+    await db
+      .update(workspaces)
+      .set({
         tier: 'FREE',
         paidUntil: null,
         planTermMonths: null,
@@ -92,107 +91,85 @@ async function syncWorkspacePlanState(
         imageCredits: freeImageCredits,
         imageCreditsMonthly: freeImageCredits,
         imageCreditsResetAt: addMonths(now, 1),
-      },
-      select: {
-        tier: true,
-        paidUntil: true,
-        planTermMonths: true,
-        verificationCredits: true,
-        verificationCreditsMonthly: true,
-        verificationCreditsResetAt: true,
-        imageCreditsMonthly: true,
-        imageCredits: true,
-        imageCreditsResetAt: true,
-      },
-    });
+      })
+      .where(eq(workspaces.id, account.creditHolderId));
 
-    account.tier = downgraded.tier;
-    account.paidUntil = downgraded.paidUntil;
-    account.planTermMonths = downgraded.planTermMonths;
-    account.verificationCredits = downgraded.verificationCredits;
-    account.verificationCreditsMonthly = downgraded.verificationCreditsMonthly;
-    account.verificationCreditsResetAt = downgraded.verificationCreditsResetAt;
-    account.imageCreditsMonthly = downgraded.imageCreditsMonthly;
-    account.imageCredits = downgraded.imageCredits;
-    account.imageCreditsResetAt = downgraded.imageCreditsResetAt;
+    account.tier = 'FREE';
+    account.paidUntil = null;
+    account.planTermMonths = null;
+    account.verificationCredits = freeQuota;
+    account.verificationCreditsMonthly = freeQuota;
+    account.verificationCreditsResetAt = addMonths(now, 1);
+    account.imageCredits = freeImageCredits;
+    account.imageCreditsMonthly = freeImageCredits;
+    account.imageCreditsResetAt = addMonths(now, 1);
   }
 
   const expectedVerificationQuota = getVerificationMonthlyQuota(account.tier, account.grandfathered, billingConfig);
   if (!account.verificationCreditsResetAt) {
-    const initialized = await prisma.workspace.update({
-      where: { id: account.creditHolderId },
-      data: {
-        verificationCreditsMonthly: expectedVerificationQuota,
-        verificationCredits: account.verificationCredits > 0 ? account.verificationCredits : expectedVerificationQuota,
-        verificationCreditsResetAt: addMonths(now, 1),
-      },
-      select: {
-        verificationCredits: true,
-        verificationCreditsMonthly: true,
-        verificationCreditsResetAt: true,
-      },
-    });
+    const creditsToSet = account.verificationCredits > 0 ? account.verificationCredits : expectedVerificationQuota;
+    const resetDate = addMonths(now, 1);
 
-    account.verificationCredits = initialized.verificationCredits;
-    account.verificationCreditsMonthly = initialized.verificationCreditsMonthly;
-    account.verificationCreditsResetAt = initialized.verificationCreditsResetAt;
+    await db
+      .update(workspaces)
+      .set({
+        verificationCreditsMonthly: expectedVerificationQuota,
+        verificationCredits: creditsToSet,
+        verificationCreditsResetAt: resetDate,
+      })
+      .where(eq(workspaces.id, account.creditHolderId));
+
+    account.verificationCredits = creditsToSet;
+    account.verificationCreditsMonthly = expectedVerificationQuota;
+    account.verificationCreditsResetAt = resetDate;
   } else if (now >= account.verificationCreditsResetAt) {
-    const reset = await prisma.workspace.update({
-      where: { id: account.creditHolderId },
-      data: {
+    const resetDate = addMonths(now, 1);
+
+    await db
+      .update(workspaces)
+      .set({
         verificationCredits: expectedVerificationQuota,
         verificationCreditsMonthly: expectedVerificationQuota,
-        verificationCreditsResetAt: addMonths(now, 1),
-      },
-      select: {
-        verificationCredits: true,
-        verificationCreditsMonthly: true,
-        verificationCreditsResetAt: true,
-      },
-    });
+        verificationCreditsResetAt: resetDate,
+      })
+      .where(eq(workspaces.id, account.creditHolderId));
 
-    account.verificationCredits = reset.verificationCredits;
-    account.verificationCreditsMonthly = reset.verificationCreditsMonthly;
-    account.verificationCreditsResetAt = reset.verificationCreditsResetAt;
+    account.verificationCredits = expectedVerificationQuota;
+    account.verificationCreditsMonthly = expectedVerificationQuota;
+    account.verificationCreditsResetAt = resetDate;
   }
 
   const monthlyImageCredits = getMonthlyImageCredits(account.tier, billingConfig);
   if (!account.imageCreditsResetAt) {
-    const refreshed = await prisma.workspace.update({
-      where: { id: account.creditHolderId },
-      data: {
-        imageCreditsMonthly: monthlyImageCredits,
-        imageCredits: { increment: monthlyImageCredits },
-        imageCreditsResetAt: addMonths(now, 1),
-      },
-      select: {
-        imageCredits: true,
-        imageCreditsMonthly: true,
-        imageCreditsResetAt: true,
-      },
-    });
+    const resetDate = addMonths(now, 1);
 
-    account.imageCredits = refreshed.imageCredits;
-    account.imageCreditsMonthly = refreshed.imageCreditsMonthly;
-    account.imageCreditsResetAt = refreshed.imageCreditsResetAt;
+    await db
+      .update(workspaces)
+      .set({
+        imageCreditsMonthly: monthlyImageCredits,
+        imageCredits: sql`${workspaces.imageCredits} + ${monthlyImageCredits}`,
+        imageCreditsResetAt: resetDate,
+      })
+      .where(eq(workspaces.id, account.creditHolderId));
+
+    account.imageCredits += monthlyImageCredits;
+    account.imageCreditsMonthly = monthlyImageCredits;
+    account.imageCreditsResetAt = resetDate;
   } else if (now >= account.imageCreditsResetAt) {
-    const refreshed = await prisma.workspace.update({
-      where: { id: account.creditHolderId },
-      data: {
+    const resetDate = addMonths(now, 1);
+
+    await db
+      .update(workspaces)
+      .set({
         imageCredits: monthlyImageCredits,
         imageCreditsMonthly: monthlyImageCredits,
-        imageCreditsResetAt: addMonths(now, 1),
-      },
-      select: {
-        imageCredits: true,
-        imageCreditsMonthly: true,
-        imageCreditsResetAt: true,
-      },
-    });
+        imageCreditsResetAt: resetDate,
+      })
+      .where(eq(workspaces.id, account.creditHolderId));
 
-    account.imageCredits = refreshed.imageCredits;
-    account.imageCreditsMonthly = refreshed.imageCreditsMonthly;
-    account.imageCreditsResetAt = refreshed.imageCreditsResetAt;
+    account.imageCredits = monthlyImageCredits;
+    account.imageCreditsMonthly = monthlyImageCredits;
+    account.imageCreditsResetAt = resetDate;
   }
 
   return billingConfig;
@@ -233,16 +210,6 @@ function getVerificationUnits(req: Request): number | null {
   return typeof req.body?.reference === 'string' && req.body.reference.trim().length > 0 ? 1 : null;
 }
 
-/**
- * Parse the key's permissions array from JSON or raw array.
- *
- * Note: ["*"] is NO LONGER honored as a wildcard. It used to bypass tier
- * checks for grandfathered keys, but that accidentally granted 400+ legacy
- * users free access to premium features. The migration `migrate-remove-
- * wildcard` replaces every ["*"] with the tier-appropriate explicit array.
- * If a key somehow still has ["*"], it will fail every premium permission
- * check (which is the safe default).
- */
 function parsePermissions(apiKeyData: any): string[] {
   const raw = apiKeyData?.permissions;
   if (Array.isArray(raw)) return raw as string[];
@@ -256,31 +223,16 @@ function hasPermission(req: Request, permission: string): boolean {
   const apiKeyData = (req as any).apiKeyData;
   const context = getWorkspaceContext(req);
   
-  // Dashboard auth has no API key, so it has all permissions of the workspace
   if (context?.source === 'dashboard') {
     return true;
   }
   
-  // Traditional API key auth checks key permissions
   if (apiKeyData) {
     return parsePermissions(apiKeyData).includes(permission);
   }
   
   return false;
 }
-
-// ─── Permission gate ──────────────────────────────────────────────────────────
-//
-// Usage: app.use('/verify-batch', permissionGate('verify-batch'))
-//
-// Two checks, in order:
-//   1. Plan entitlement — Free defaults to no premium resources, but the shared
-//      plan configuration can explicitly grant batch/webhook/notification use.
-//   2. Key permission — the permissions array must explicitly contain the
-//      required permission. ["*"] is no longer treated as a wildcard.
-//
-// Legacy Free affects only its existing verification quota and 30 rpm rate; it
-// does not bypass permissions or acquire resource entitlements implicitly.
 
 export const permissionGate = (permission: string) =>
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -289,7 +241,6 @@ export const permissionGate = (permission: string) =>
 
     const { account, billingConfig } = await getSyncedPlanState(req);
 
-    // ── 1. Tier ceiling (premium endpoints only) ─────────────────────────────
     if (permission !== 'verify') {
       if (account.tier === 'FREE') {
         const configuredForFree =
@@ -307,14 +258,11 @@ export const permissionGate = (permission: string) =>
       }
     }
 
-    // ── 2. Permission check ──────────────────────────────────────────────────
-    // Dashboard auth has all permissions, API key auth checks key permissions
     const apiKeyData = (req as any).apiKeyData;
     if (context.source === 'api_key' && !hasPermission(req, permission)) {
       res.status(403).json({
         success: false,
-        error: `This API key does not have the '${permission}' permission. ` +
-               `Update the key's permissions in the dashboard.`,
+        error: `This API key does not have the '${permission}' permission. Update the key's permissions in the dashboard.`,
         manageKeys: `${APP_URL}/dashboard`,
       });
       return;
@@ -323,19 +271,7 @@ export const permissionGate = (permission: string) =>
     next();
   };
 
-// ─── Backwards-compatible proGate (kept for any existing callers) ─────────────
 export const proGate = permissionGate('verify-batch');
-
-// ── /verify-image gate ───────────────────────────────────────────────────────
-//
-// Execution order:
-//   1. Resolve account from workspace
-//   2. Configured allocation check
-//   3. Permission check: must have "verify-image"
-//   4. Credit balance check: 0 remaining → 402
-//
-// The actual decrement (balance -= 1) is done atomically in verifyImage.ts
-// AFTER the file is confirmed present, using updateMany + gt:0 guard.
 
 export const verifyImageGate = async (
   req: Request,
@@ -347,8 +283,6 @@ export const verifyImageGate = async (
 
   const { account } = await getSyncedPlanState(req);
 
-  // ── 1. Tier ceiling ────────────────────────────────────────────────────────
-  // A zero configured allocation disables image verification for the plan.
   if (account.imageCreditsMonthly <= 0) {
     res.status(402).json({
       success: false,
@@ -358,8 +292,6 @@ export const verifyImageGate = async (
     return;
   }
 
-  // ── 2. Permission check ──────────────────────────────────────────────────
-  // Dashboard auth has all permissions, API key auth checks key permissions
   const apiKeyData = (req as any).apiKeyData;
   if (context.source === 'api_key' && !hasPermission(req, 'verify-image')) {
     res.status(403).json({
@@ -370,7 +302,6 @@ export const verifyImageGate = async (
     return;
   }
 
-  // ── 3. Credit balance check ────────────────────────────────────────────────
   if (account.imageCredits <= 0) {
     res.status(402).json({
       success: false,
@@ -380,7 +311,6 @@ export const verifyImageGate = async (
     return;
   }
 
-  // Pass resolved account to verifyImage.ts so it knows where to decrement
   (req as any).resolvedAccount = account;
   next();
 };
@@ -435,24 +365,17 @@ export const verifyQuotaGate = async (
     return;
   }
 
-  const updated = await prisma.workspace.updateMany({
-    where: {
-      id: account.creditHolderId,
-      verificationCredits: { gte: units },
-    },
-    data: {
-      verificationCredits: { decrement: units },
-    },
-  });
-
-  if (updated.count === 0) {
-    res.status(402).json({
-      success: false,
-      error: 'Monthly verification quota reached.',
-      upgrade: `${APP_URL}/dashboard/billing`,
-    });
-    return;
-  }
+  const result = await db
+    .update(workspaces)
+    .set({
+      verificationCredits: sql`${workspaces.verificationCredits} - ${units}`,
+    })
+    .where(
+      and(
+        eq(workspaces.id, account.creditHolderId),
+        gte(workspaces.verificationCredits, units)
+      )
+    );
 
   next();
 };

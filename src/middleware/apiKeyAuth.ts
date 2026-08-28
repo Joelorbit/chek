@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import logger from '../utils/logger';
-import { prisma } from '../utils/prisma';
+import { db } from '../db';
+import { apiKeys, workspaces, memberships } from '../db/schema';
+import { eq, or, and, desc, sql } from 'drizzle-orm';
 import { AppError, ErrorType, sendErrorResponse } from '../utils/errorHandler';
 import {
   BILLING_PAYMENT_OPERATION,
@@ -24,27 +26,30 @@ export const generateApiKey = async (owner: string) => {
   const prefix = `sk_live_${rawSecret.substring(0, 6)}...`;
 
   try {
-    const membership = await prisma.membership.findFirst({
-      where: { userId: owner },
-      orderBy: { createdAt: 'asc' },
-      select: { workspaceId: true },
+    const membership = await db.query.memberships.findFirst({
+      where: eq(memberships.userId, owner),
+      orderBy: [memberships.createdAt],
     });
     if (!membership) {
       throw new Error('No workspace found for owner.');
     }
 
-    const apiKey = await prisma.apiKey.create({
-      data: {
-        keyHash,
-        prefix,
-        workspaceId: membership.workspaceId,
-        usageCount: 0,
-        isActive: true,
-        permissions: ['verify'],
-      },
-      include: { workspace: true },
+    const keyId = crypto.randomUUID();
+    await db.insert(apiKeys).values({
+      id: keyId,
+      keyHash,
+      prefix,
+      workspaceId: membership.workspaceId,
+      usageCount: 0,
+      isActive: true,
+      permissions: ['verify'],
     });
-    return { apiKeyRecord: apiKey, rawKey };
+
+    const apiKeyRecord = await db.query.apiKeys.findFirst({
+      where: eq(apiKeys.id, keyId),
+      with: { workspace: true },
+    });
+    return { apiKeyRecord: apiKeyRecord!, rawKey };
   } catch (error) {
     logger.error('Error generating API key:', error);
     throw error;
@@ -56,18 +61,19 @@ export const generateApiKey = async (owner: string) => {
 export const validateApiKey = async (incomingKey: string) => {
   try {
     const incomingHash = crypto.createHash('sha256').update(incomingKey).digest('hex');
-    return await prisma.apiKey.findFirst({
-      where: {
-        isActive: true,
-        OR: [
-          { keyHash: incomingHash },
-          { key: incomingKey }, // Legacy plain-text keys
-        ],
-      },
-      include: {
+    const keyData = await db.query.apiKeys.findFirst({
+      where: and(
+        eq(apiKeys.isActive, true),
+        or(
+          eq(apiKeys.keyHash, incomingHash),
+          eq(apiKeys.key, incomingKey)
+        )
+      ),
+      with: {
         workspace: true,
       },
     });
+    return keyData || null;
   } catch (error) {
     logger.error('Error validating API key:', error);
     throw error;
@@ -90,13 +96,12 @@ export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction
   }
 
   // ── Dashboard auth ────────────────────────────────────────────────────────
-  // The Next.js UI server authenticates as itself, scoped to a workspace.
   const dashboardKeyHeader = req.headers['x-dashboard-key'] as string | undefined;
   const workspaceIdHeader = req.headers['x-workspace-id'] as string | undefined;
   if (DASHBOARD_SECRET && dashboardKeyHeader === DASHBOARD_SECRET && workspaceIdHeader) {
     try {
-      const workspace = await prisma.workspace.findUnique({
-        where: { id: workspaceIdHeader },
+      const workspace = await db.query.workspaces.findFirst({
+        where: eq(workspaces.id, workspaceIdHeader),
       });
       if (!workspace) {
         return res.status(404).json({ success: false, error: 'Workspace not found.' });
@@ -119,8 +124,6 @@ export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction
   }
 
   // ── Public verify proxy auth ───────────────────────────────────────────────
-  // The Next.js server can forward public homepage verifications without
-  // attributing them to any workspace or API key.
   const publicVerifyHeader = req.headers['x-public-verify-key'] as string | undefined;
   if (DASHBOARD_SECRET && publicVerifyHeader === DASHBOARD_SECRET && PUBLIC_VERIFY_PATHS.has(req.path)) {
     (req as any).publicVerify = true;
@@ -129,15 +132,13 @@ export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction
   }
 
   // ── Admin-proxy bypass ─────────────────────────────────────────────────────
-  // The Next.js UI sends x-admin-key + x-api-key-id so it can make calls on
-  // behalf of a user without their raw key (new-format keys store only a hash).
   const adminKeyHeader = req.headers['x-admin-key'] as string | undefined;
   const keyIdOverride  = req.headers['x-api-key-id'] as string | undefined;
   if (ADMIN_SECRET && adminKeyHeader === ADMIN_SECRET && keyIdOverride) {
     try {
-      const keyData = await prisma.apiKey.findUnique({
-        where: { id: keyIdOverride, isActive: true },
-        include: { workspace: true },
+      const keyData = await db.query.apiKeys.findFirst({
+        where: and(eq(apiKeys.id, keyIdOverride), eq(apiKeys.isActive, true)),
+        with: { workspace: true },
       });
       if (!keyData) {
         return res.status(404).json({ success: false, error: 'API key not found.' });
@@ -166,12 +167,13 @@ export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction
       return res.status(403).json({ success: false, error: 'Invalid API key' });
     }
 
-    // Update usage stats (fire-and-forget, don't block the request)
-    prisma.apiKey
-      .update({
-        where: { id: keyData.id },
-        data: { lastUsed: new Date(), usageCount: { increment: 1 } },
+    // Update usage stats in background
+    db.update(apiKeys)
+      .set({
+        lastUsed: new Date(),
+        usageCount: sql`${apiKeys.usageCount} + 1`,
       })
+      .where(eq(apiKeys.id, keyData.id))
       .catch((e) => logger.error('Failed to update key usage stats:', e));
 
     (req as any).apiKeyData = keyData;
@@ -186,9 +188,9 @@ export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction
 
 export const getApiKeys = async () => {
   try {
-    return await prisma.apiKey.findMany({
-      include: { workspace: true },
-      orderBy: { createdAt: 'desc' },
+    return await db.query.apiKeys.findMany({
+      with: { workspace: true },
+      orderBy: [desc(apiKeys.createdAt)],
     });
   } catch (error) {
     logger.error('Error fetching API keys:', error);

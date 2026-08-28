@@ -35,6 +35,5 @@ coverage/
 # prisma/migrations/
 
 # Local Notes & Docs
-prisma.md
 drizzle.md
 drizzle/
