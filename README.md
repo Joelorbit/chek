@@ -1,7 +1,13 @@
-# 🧾 Chek — Ethiopian Payment Verification Engine & Webhook Relay
+<p align="center">
+  <img src="public/logo.svg" width="96" height="96" alt="Chek Receipt Logo" />
+</p>
 
-> **Chek** is a high-performance payment verification engine, smart router, and webhook bridge built for developers, Telegram bot creators, and merchants in Ethiopia.  
-> Supports **Commercial Bank of Ethiopia (CBE)**, **Ethio Telecom Telebirr**, **Bank of Abyssinia**, **Dashen Bank**, **CBE Birr**, **Safaricom M-Pesa**, **Awash Bank**, **Cooperative Bank of Oromia**, **Hibret Bank**, **Zemen Bank**, **Nib International Bank**, **Wegagen Bank**, and **Amhara Bank**.
+<h1 align="center">🧾 Chek — Ethiopian Payment Verification Engine & Webhook Relay</h1>
+
+<p align="center">
+  <strong>High-performance payment verification engine, smart router, and webhook bridge built for developers, Telegram bot creators, and merchants in Ethiopia.</strong><br>
+  <em>Supports CBE, Telebirr, Bank of Abyssinia, Dashen, CBE Birr, Safaricom M-Pesa, Awash, Coop, Hibret, Zemen, Nib, Wegagen, and Amhara.</em>
+</p>
 
 ---
 
