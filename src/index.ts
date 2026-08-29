@@ -11,6 +11,7 @@ import telebirrRouter from './routes/verifyTelebirrRoute';
 import universalRouter from './routes/verifyUniversalRoute';
 import batchRouter from './routes/verifyBatch';
 import adminRouter from './routes/adminRoute';
+import docsRouter from './routes/docsRoute';
 import logger from './utils/logger';
 import { apiKeyAuth } from './middleware/apiKeyAuth';
 import { rateLimiter } from './middleware/rateLimiter';
@@ -27,6 +28,12 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static assets if any
 app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.static(path.join(process.cwd(), 'public')));
+
+// Developer Documentation Portal & Aliases
+app.use('/docs', docsRouter);
+app.get(['/api-docs', '/apidocs', '/doc'], (_req: Request, res: Response) => {
+  res.redirect('/docs');
+});
 
 // Admin Dashboard & Admin REST API (bypasses customer API key auth)
 app.use('/admin', adminRouter);

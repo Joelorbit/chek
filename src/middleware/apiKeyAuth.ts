@@ -2,14 +2,15 @@ import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import logger from '../utils/logger';
 import { db } from '../db';
-import { apiKeys } from '../db/schema';
+import { apiKeys, merchants } from '../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { verifyToken } from '../services/authService';
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'chek_admin_super_secret_key_902104';
 
 // ─── Key generation ────────────────────────────────────────────────────────────
 
-export const generateApiKey = async (name: string = 'Default App') => {
+export const generateApiKey = async (name: string = 'Default App', merchantId?: string) => {
   const rawSecret = crypto.randomBytes(24).toString('hex');
   const rawKey = `sk_live_${rawSecret}`;
   const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
@@ -18,6 +19,7 @@ export const generateApiKey = async (name: string = 'Default App') => {
   const keyId = crypto.randomUUID();
   const [record] = await db.insert(apiKeys).values({
     id: keyId,
+    merchantId: merchantId || null,
     name,
     keyHash,
     prefix,
@@ -53,6 +55,10 @@ export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction
     req.path === '/' ||
     req.path === '/health' ||
     req.path === '/ready' ||
+    req.path.startsWith('/docs') ||
+    req.path.startsWith('/api-docs') ||
+    req.path.startsWith('/apidocs') ||
+    req.path.startsWith('/doc') ||
     req.path.startsWith('/admin')
   ) {
     return next();
@@ -63,6 +69,17 @@ export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction
   if (adminKey && adminKey === ADMIN_SECRET) {
     (req as any).isAdmin = true;
     return next();
+  }
+
+  // Check Bearer / JWT Session
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7).trim();
+    const payload = verifyToken(token);
+    if (payload) {
+      (req as any).merchantUser = payload;
+      return next();
+    }
   }
 
   const apiKeyHeader = req.headers['x-api-key'] || (req.query.apiKey as string);
@@ -95,27 +112,43 @@ export const apiKeyAuth = async (req: Request, res: Response, next: NextFunction
   next();
 };
 
-export const listApiKeys = async () => {
+export const listApiKeys = async (merchantId?: string) => {
+  if (merchantId) {
+    return db.query.apiKeys.findMany({
+      where: eq(apiKeys.merchantId, merchantId),
+      orderBy: [desc(apiKeys.createdAt)],
+    });
+  }
   return db.query.apiKeys.findMany({
     orderBy: [desc(apiKeys.createdAt)],
   });
 };
 
-export const revokeApiKey = async (id: string) => {
+export const revokeApiKey = async (id: string, merchantId?: string) => {
+  const conditions = [eq(apiKeys.id, id)];
+  if (merchantId) {
+    conditions.push(eq(apiKeys.merchantId, merchantId));
+  }
+
   return db.update(apiKeys)
     .set({ isActive: false })
-    .where(eq(apiKeys.id, id))
+    .where(conditions.length === 1 ? conditions[0] : and(...conditions))
     .returning();
 };
 
-export const updateApiKey = async (id: string, updates: { name?: string; isActive?: boolean }) => {
+export const updateApiKey = async (id: string, updates: { name?: string; isActive?: boolean }, merchantId?: string) => {
   const payload: any = {};
   if (updates.name !== undefined) payload.name = updates.name;
   if (updates.isActive !== undefined) payload.isActive = updates.isActive;
 
+  const conditions = [eq(apiKeys.id, id)];
+  if (merchantId) {
+    conditions.push(eq(apiKeys.merchantId, merchantId));
+  }
+
   const [updated] = await db.update(apiKeys)
     .set(payload)
-    .where(eq(apiKeys.id, id))
+    .where(conditions.length === 1 ? conditions[0] : and(...conditions))
     .returning();
 
   return updated;

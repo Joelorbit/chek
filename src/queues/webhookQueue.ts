@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import logger from '../utils/logger';
 import { db } from '../db';
 import { webhooks, webhookDeliveries } from '../db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 
 const REQUEST_TIMEOUT_MS = 8_000;
 const RETRY_DELAYS_MS = [3_000, 10_000, 30_000];
@@ -93,16 +93,26 @@ async function deliverAttempt(deliveryId: string, webhookUrl: string, secret: st
   }
 }
 
-export async function dispatchPaymentWebhook(event: string, payload: WebhookPayload, transactionId?: string): Promise<void> {
+export async function dispatchPaymentWebhook(
+  event: string,
+  payload: WebhookPayload,
+  transactionId?: string,
+  merchantId?: string
+): Promise<void> {
   try {
+    const conditions = [eq(webhooks.isActive, true)];
+    if (merchantId) {
+      conditions.push(eq(webhooks.merchantId, merchantId));
+    }
+
     const activeWebhooks = await db.query.webhooks.findMany({
-      where: eq(webhooks.isActive, true),
+      where: conditions.length === 1 ? conditions[0] : and(...conditions),
     });
 
     if (activeWebhooks.length === 0) return;
 
     for (const hook of activeWebhooks) {
-      const subscribedEvents = hook.events || ['verification.success'];
+      const subscribedEvents = hook.events || ['payment.verified'];
       if (!subscribedEvents.includes(event) && !subscribedEvents.includes('*')) {
         continue;
       }
@@ -130,10 +140,15 @@ export async function dispatchPaymentWebhook(event: string, payload: WebhookPayl
   }
 }
 
-export async function registerWebhook(url: string, events: string[] = ['verification.success']) {
+export async function registerWebhook(
+  url: string,
+  events: string[] = ['payment.verified'],
+  merchantId?: string
+) {
   const signingSecret = `whsec_${crypto.randomBytes(24).toString('hex')}`;
   const [record] = await db.insert(webhooks).values({
     id: crypto.randomUUID(),
+    merchantId: merchantId || null,
     url,
     signingSecret,
     events,
@@ -143,12 +158,36 @@ export async function registerWebhook(url: string, events: string[] = ['verifica
   return record;
 }
 
-export async function listWebhooks() {
+export async function listWebhooks(merchantId?: string) {
+  if (merchantId) {
+    return db.query.webhooks.findMany({
+      where: eq(webhooks.merchantId, merchantId),
+      orderBy: [desc(webhooks.createdAt)],
+    });
+  }
   return db.query.webhooks.findMany({
     orderBy: [desc(webhooks.createdAt)],
   });
 }
 
-export async function deleteWebhook(id: string) {
-  return db.delete(webhooks).where(eq(webhooks.id, id)).returning();
+export async function listWebhookDeliveries(webhookId?: string, limit: number = 20) {
+  if (webhookId) {
+    return db.query.webhookDeliveries.findMany({
+      where: eq(webhookDeliveries.webhookId, webhookId),
+      orderBy: [desc(webhookDeliveries.createdAt)],
+      limit,
+    });
+  }
+  return db.query.webhookDeliveries.findMany({
+    orderBy: [desc(webhookDeliveries.createdAt)],
+    limit,
+  });
+}
+
+export async function deleteWebhook(id: string, merchantId?: string) {
+  const conditions = [eq(webhooks.id, id)];
+  if (merchantId) {
+    conditions.push(eq(webhooks.merchantId, merchantId));
+  }
+  return db.delete(webhooks).where(conditions.length === 1 ? conditions[0] : and(...conditions)).returning();
 }
