@@ -1,10 +1,7 @@
 import axios, { AxiosError } from "axios";
+import https from "https";
 import * as cheerio from "cheerio";
 import logger from '../utils/logger';
-import type {
-    TelebirrProbeDetails,
-    TelebirrRouteStatus
-} from '../types/statusProbe';
 
 export interface TelebirrReceipt {
     payerName: string;
@@ -22,19 +19,22 @@ export interface TelebirrReceipt {
     customerNote: string;
 }
 
+const httpsAgent = new https.Agent({
+    rejectUnauthorized: false,
+    keepAlive: true,
+});
+
 /**
  * Enhanced regex-based extractor for settled amount - multiple patterns like PHP version
- * @param htmlContent The raw HTML content
- * @returns Extracted settled amount or null
  */
 function extractSettledAmountRegex(htmlContent: string): string | null {
     // Pattern 1: Direct match with the exact text structure
-    const pattern1 = /የተከፈለው\s+መጠን\/Settled\s+Amount.*?<\/td>\s*<td[^>]*>\s*([\d,]+(?:\.\d+)?\s+Birr)/is;
+    const pattern1 = /(?:የተከፈለው\s+መጠን\/)?Settled\s+Amount.*?<\/td>\s*<td[^>]*>\s*([\d,]+(?:\.\d+)?\s+Birr)/is;
     let match = htmlContent.match(pattern1);
     if (match) return match[1].trim();
 
     // Pattern 2: Look for the table row structure
-    const pattern2 = /<tr[^>]*>.*?የተከፈለው\s+መጠን\/Settled\s+Amount.*?<td[^>]*>\s*([\d,]+(?:\.\d+)?\s+Birr)/is;
+    const pattern2 = /<tr[^>]*>.*?(?:የተከፈለው\s+መጠን\/)?Settled\s+Amount.*?<td[^>]*>\s*([\d,]+(?:\.\d+)?\s+Birr)/is;
     match = htmlContent.match(pattern2);
     if (match) return match[1].trim();
 
@@ -44,8 +44,13 @@ function extractSettledAmountRegex(htmlContent: string): string | null {
     if (match) return match[1].trim();
 
     // Pattern 4: Look specifically in the transaction details table
-    const pattern4 = /የክፍያ\s+ዝርዝር\/Transaction\s+details.*?<tr[^>]*>.*?<td[^>]*>\s*[^<]*<\/td>\s*<td[^>]*>\s*[^<]*<\/td>\s*<td[^>]*>\s*([\d,]+(?:\.\d+)?\s+Birr)/is;
+    const pattern4 = /(?:የክፍያ\s+ዝርዝር\/)?Transaction\s+details.*?<tr[^>]*>.*?<td[^>]*>\s*[^<]*<\/td>\s*<td[^>]*>\s*[^<]*<\/td>\s*<td[^>]*>\s*([\d,]+(?:\.\d+)?\s+Birr)/is;
     match = htmlContent.match(pattern4);
+    if (match) return match[1].trim();
+
+    // Pattern 5: Generic Birr amount in table td
+    const pattern5 = /<td[^>]*class="[^"]*receipttableTd[^"]*"[^>]*>\s*([\d,]+(?:\.\d+)?\s+Birr)\s*<\/td>/i;
+    match = htmlContent.match(pattern5);
     if (match) return match[1].trim();
 
     return null;
@@ -53,13 +58,9 @@ function extractSettledAmountRegex(htmlContent: string): string | null {
 
 /**
  * Enhanced regex-based extractor for service fee
- * @param htmlContent The raw HTML content
- * @returns Extracted service fee or null
  */
 function extractServiceFeeRegex(htmlContent: string): string | null {
-    // Pattern to match "የአገልግሎት ክፍያ/Service fee" followed by amount in Birr
-    // Make sure we don't match VAT version
-    const pattern = /የአገልግሎት\s+ክፍያ\/Service\s+fee(?!\s+ተ\.እ\.ታ).*?<\/td>\s*<td[^>]*>\s*([\d,]+(?:\.\d+)?\s+Birr)/i;
+    const pattern = /(?:የአገልግሎት\s+ክፍያ\/)?Service\s+fee(?!\s+ተ\.እ\.ታ|\s+VAT).*?<\/td>\s*<td[^>]*>\s*([\d,]+(?:\.\d+)?\s+Birr)/i;
     const match = htmlContent.match(pattern);
     if (match) return match[1].trim();
 
@@ -68,11 +69,8 @@ function extractServiceFeeRegex(htmlContent: string): string | null {
 
 /**
  * Enhanced regex-based extractor for receipt number
- * @param htmlContent The raw HTML content
- * @returns Extracted receipt number or null
  */
 function extractReceiptNoRegex(htmlContent: string): string | null {
-    // Extract receipt number from the transaction details table
     const pattern = /<td[^>]*class="[^"]*receipttableTd[^"]*receipttableTd2[^"]*"[^>]*>\s*([A-Z0-9]+)\s*<\/td>/i;
     const match = htmlContent.match(pattern);
     if (match) return match[1].trim();
@@ -82,12 +80,9 @@ function extractReceiptNoRegex(htmlContent: string): string | null {
 
 /**
  * Enhanced regex-based extractor for payment date
- * @param htmlContent The raw HTML content
- * @returns Extracted payment date or null
  */
 function extractDateRegex(htmlContent: string): string | null {
-    // Extract date in format DD-MM-YYYY HH:MM:SS
-    const pattern = /(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/;
+    const pattern = /(\d{2}[-/.]\d{2}[-/.]\d{4}\s+\d{2}:\d{2}:\d{2})/;
     const match = htmlContent.match(pattern);
     if (match) return match[1].trim();
 
@@ -95,82 +90,55 @@ function extractDateRegex(htmlContent: string): string | null {
 }
 
 /**
- * Generic regex extractor for other fields
- * @param htmlContent The raw HTML content
- * @param labelPattern The label to search for
- * @param valuePattern The pattern for the value (defaults to capturing any non-tag content)
- * @returns Extracted value or null
+ * Generic regex extractor for other fields with array of fallback labels
  */
-function extractWithRegex(htmlContent: string, labelPattern: string, valuePattern: string = '([^<]+)'): string | null {
-    // Escape special regex characters in the label pattern
-    const escapedLabel = labelPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const pattern = new RegExp(`${escapedLabel}.*?<\\/td>\\s*<td[^>]*>\\s*${valuePattern}`, 'i');
-    const match = htmlContent.match(pattern);
-    if (match) return match[1].replace(/<[^>]*>/g, '').trim(); // Strip any remaining HTML tags
+function extractWithRegex(htmlContent: string, labelPatterns: string | string[], valuePattern: string = '([^<]+)'): string | null {
+    const patterns = Array.isArray(labelPatterns) ? labelPatterns : [labelPatterns];
+
+    for (const labelPattern of patterns) {
+        const escapedLabel = labelPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pattern = new RegExp(`<td[^>]*>\\s*${escapedLabel}\\s*<\\/td>\\s*<td[^>]*>\\s*${valuePattern}`, 'i');
+        const match = htmlContent.match(pattern);
+        if (match) {
+            return match[1].replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+    }
 
     return null;
 }
 
-/**
- * Regex-based extractor for settled amount and service fee as fallback
- * @param htmlContent The raw HTML content
- * @returns Object containing extracted values
- */
 function extractWithRegexLegacy(htmlContent: string): { settledAmount: string | null; serviceFee: string | null } {
-    // Use the new enhanced extractors
-    const settledAmount = extractSettledAmountRegex(htmlContent);
-    const serviceFee = extractServiceFeeRegex(htmlContent);
-
     return {
-        settledAmount,
-        serviceFee
+        settledAmount: extractSettledAmountRegex(htmlContent),
+        serviceFee: extractServiceFeeRegex(htmlContent)
     };
 }
 
 /**
- * Scrapes Telebirr receipt data from HTML content
- * @param html The HTML content to scrape
- * @returns Extracted Telebirr receipt data
+ * Scrapes Telebirr receipt data from HTML content with exhaustive multi-label fallbacks
  */
 function scrapeTelebirrReceipt(html: string): TelebirrReceipt {
     const $ = cheerio.load(html);
 
-    // Log HTML content in debug mode to help diagnose scraping issues
-    logger.debug(`HTML content length: ${html.length} bytes`);
-    if (html.length < 100) {
-        logger.warn(`Suspiciously short HTML response: ${html}`);
-    }
-
-    const getText = (selector: string): string =>
-        $(selector).next().text().trim();
-
     const getPaymentDate = (): string => {
-        // First try regex extraction
         const regexDate = extractDateRegex(html);
         if (regexDate) return regexDate;
-
-        // Fallback to cheerio
         return $('.receipttableTd').filter((_, el) => $(el).text().includes("-202")).first().text().trim();
     };
 
     const getReceiptNo = (): string => {
-        // First try regex extraction
         const regexReceiptNo = extractReceiptNoRegex(html);
         if (regexReceiptNo) return regexReceiptNo;
-
-        // Fallback to cheerio
         return $('td.receipttableTd.receipttableTd2')
-            .eq(1) // second match: the value, not the label
+            .eq(1)
             .text()
             .trim();
     };
 
     const getSettledAmount = (): string => {
-        // First try the enhanced regex approach
         const regexAmount = extractSettledAmountRegex(html);
         if (regexAmount) return regexAmount;
 
-        // Fallback to cheerio approach
         let amount = $('td.receipttableTd.receipttableTd2')
             .filter((_, el) => {
                 const prevTd = $(el).prev();
@@ -179,7 +147,6 @@ function scrapeTelebirrReceipt(html: string): TelebirrReceipt {
             .text()
             .trim();
 
-        // If that doesn't work, try looking in the transaction details table
         if (!amount) {
             amount = $('tr')
                 .filter((_, el) => {
@@ -192,15 +159,23 @@ function scrapeTelebirrReceipt(html: string): TelebirrReceipt {
                 .trim();
         }
 
+        if (!amount) {
+            $('td').each((_, el) => {
+                const t = $(el).text().trim();
+                if (/^[\d,]+(?:\.\d+)?\s+Birr$/i.test(t)) {
+                    amount = t;
+                    return false;
+                }
+            });
+        }
+
         return amount;
     };
 
     const getServiceFee = (): string => {
-        // First try the enhanced regex approach
         const regexFee = extractServiceFeeRegex(html);
         if (regexFee) return regexFee;
 
-        // Fallback to cheerio approach - look for service fee but not service fee VAT
         let fee = $('td.receipttableTd1')
             .filter((_, el) => {
                 const text = $(el).text();
@@ -211,7 +186,6 @@ function scrapeTelebirrReceipt(html: string): TelebirrReceipt {
             .text()
             .trim();
 
-        // Alternative approach - look in table rows
         if (!fee) {
             fee = $('tr')
                 .filter((_, el) => {
@@ -225,39 +199,59 @@ function scrapeTelebirrReceipt(html: string): TelebirrReceipt {
                 .trim();
         }
 
-        return fee;
+        return fee || "0.00 Birr";
     };
 
-    // Helper function to extract text using regex first, then cheerio
-    const getTextWithFallback = (labelText: string, cheerioSelector?: string): string => {
-        // Try regex first
-        const regexResult = extractWithRegex(html, labelText);
+    const getTextWithFallback = (labels: string | string[], cheerioSelector?: string): string => {
+        const regexResult = extractWithRegex(html, labels);
         if (regexResult) return regexResult;
 
-        // Fallback to cheerio if selector provided
-        if (cheerioSelector) {
-            return getText(cheerioSelector);
+        const labelArr = Array.isArray(labels) ? labels : [labels];
+        for (const label of labelArr) {
+            let found = "";
+            $("td").each((_, elem) => {
+                if ($(elem).text().trim().includes(label)) {
+                    found = $(elem).next("td").text().trim();
+                    if (found) return false;
+                }
+            });
+            if (found) return found;
         }
 
-        // Default cheerio approach
-        return getText(`td:contains("${labelText}")`);
+        if (cheerioSelector) {
+            return $(cheerioSelector).next().text().trim();
+        }
+
+        return "";
     };
 
-    logger.debug("SERVICE FEE: ", getServiceFee());
-    logger.debug("SETTLED AMOUNT: ", getSettledAmount());
+    let creditedPartyName = getTextWithFallback([
+        "የገንዘብ ተቀባይ ስም/Credited Party name",
+        "የክፍያ ተቀባይ ስም/Credited party name",
+        "የክፍያ ተቀባይ ስም",
+        "የገንዘብ ተቀባይ ስም",
+        "Credited Party name",
+        "Credited party name"
+    ]);
 
-    // Get regex results as backup for debugging
-    const regexResults = extractWithRegexLegacy(html);
-    logger.debug("Regex results:", regexResults);
+    let creditedPartyAccountNo = getTextWithFallback([
+        "የገንዘብ ተቀባይ ቴሌብር ቁ./Credited party account no",
+        "የክፍያ ተቀባይ ቴሌብር ቁ./Credited party telebirr no.",
+        "የክፍያ ተቀባይ ቴሌብር ቁ.",
+        "የገንዘብ ተቀባይ ቴሌብር ቁ.",
+        "Credited party telebirr no.",
+        "Credited party account no"
+    ]);
 
-    let creditedPartyName = getTextWithFallback("የገንዘብ ተቀባይ ስም/Credited Party name");
-    let creditedPartyAccountNo = getTextWithFallback("የገንዘብ ተቀባይ ቴሌብር ቁ./Credited party account no");
     let bankName = "";
-
-    const bankAccountNumberRaw = getTextWithFallback("የባንክ አካውንት ቁጥር/Bank account number");
+    const bankAccountNumberRaw = getTextWithFallback([
+        "የባንክ አካውንት ቁጥር/Bank account number",
+        "Bank account number",
+        "የባንክ አካውንት ቁጥር"
+    ]);
 
     if (bankAccountNumberRaw) {
-        bankName = creditedPartyName; // The original credited party name is the bank
+        bankName = creditedPartyName;
         const bankAccountRegex = /(\d+)\s+(.*)/;
         const match = bankAccountNumberRaw.match(bankAccountRegex);
         if (match) {
@@ -266,721 +260,166 @@ function scrapeTelebirrReceipt(html: string): TelebirrReceipt {
         }
     }
 
+    const payerName = getTextWithFallback([
+        "የከፋይ ስም/Payer Name",
+        "Payer Name",
+        "የከፋይ ስም",
+        "Payer name"
+    ]);
+
+    const payerTelebirrNo = getTextWithFallback([
+        "የከፋይ ቴሌብር ቁ./Payer telebirr no.",
+        "Payer telebirr no.",
+        "Payer Telebirr No.",
+        "የከፋይ ቴሌብር ቁ."
+    ]);
+
+    const transactionStatus = getTextWithFallback([
+        "የክፍያው ሁኔታ/transaction status",
+        "የክፍያው ሁኔታ/Transaction status",
+        "transaction status",
+        "Transaction Status",
+        "የክፍያው ሁኔታ"
+    ]) || "Completed";
+
+    const serviceFeeVAT = getTextWithFallback([
+        "የአገልግሎት ክፍያ ተ.እ.ታ/Service fee VAT",
+        "Service fee VAT",
+        "Service Fee VAT",
+        "የአገልግሎት ክፍያ ተ.እ.ታ"
+    ]) || "0.00 Birr";
+
+    const totalPaidAmount = getTextWithFallback([
+        "ጠቅላላ የተከፈለ/Total Paid Amount",
+        "Total Paid Amount",
+        "ጠቅላላ የተከፈለ"
+    ]) || getSettledAmount();
+
+    const customerNote = getTextWithFallback([
+        "የደንበኛ መልዕክት/Customer Note",
+        "Customer Note",
+        "የደንበኛ መልዕክት"
+    ]);
 
     return {
-        payerName: getTextWithFallback("የከፋይ ስም/Payer Name"),
-        payerTelebirrNo: getTextWithFallback("የከፋይ ቴሌብር ቁ./Payer telebirr no."),
+        payerName,
+        payerTelebirrNo,
         creditedPartyName,
         creditedPartyAccountNo,
-        transactionStatus: getTextWithFallback("የክፍያው ሁኔታ/transaction status"),
+        transactionStatus,
         receiptNo: getReceiptNo(),
         paymentDate: getPaymentDate(),
         settledAmount: getSettledAmount(),
         serviceFee: getServiceFee(),
-        serviceFeeVAT: getTextWithFallback("የአገልግሎት ክፍያ ተ.እ.ታ/Service fee VAT"),
-        totalPaidAmount: getTextWithFallback("ጠቅላላ የተከፈለ/Total Paid Amount"),
+        serviceFeeVAT,
+        totalPaidAmount,
         bankName,
-        customerNote: getTextWithFallback("የደንበኛ መልዕክት/Customer Note")
+        customerNote
     };
 }
 
 /**
- * Parses Telebirr receipt data from JSON response
- * @param jsonData The JSON data from the proxy endpoint
- * @returns Extracted Telebirr receipt data
+ * Parses Telebirr SMS or Receipt Text
  */
-function parseTelebirrJson(jsonData: any): TelebirrReceipt | null {
+export function verifyTelebirrFromText(reference: string, text: string): TelebirrReceipt | null {
+    const raw = text.replace(/\s+/g, ' ').trim();
+    const cleanRef = reference.trim().toUpperCase();
+
+    if (!raw.toUpperCase().includes(cleanRef) && cleanRef.length > 0 && cleanRef !== 'TELEBIRR_RECEIPT') {
+        return null;
+    }
+
+    let amountStr = '';
+    const amtMatch = raw.match(/(?:amount|total|settled\s+amount|received|paid)\s*[:\-]?\s*(?:birr|etb)?\s*([\d,]+(?:\.\d{1,2})?)/i)
+      || raw.match(/([\d,]+(?:\.\d{1,2})?)\s*(?:birr|etb)/i);
+    if (amtMatch) {
+        amountStr = amtMatch[1].replace(/,/g, '');
+    }
+
+    let payer = '';
+    const payerMatch = raw.match(/(?:payer|sender)(?:\s+name)?\s*[:\-]\s*(.*?)(?=\s+(?:transaction\s+status|status|amount|total|settled|birr|etb|txn|ref|payment|date)\b|$)/i)
+      || raw.match(/from\s+(?:(?:\+?251\d{9}|\d{10})\s+)?\(([A-Za-z][A-Za-z .'-]{2,})\)/i)
+      || raw.match(/from\s+([A-Za-z][A-Za-z .'-]{2,})(?=\s+(?:on|with|for|txn|ref|birr|etb|amount)\b|$)/i)
+      || raw.match(/from\s+([A-Za-z][A-Za-z .'-]{2,})/i);
+    if (payerMatch) {
+        payer = payerMatch[1].trim();
+    }
+
+    const statusMatch = raw.match(/(?:status|transaction\s+status)\s*[:\-]\s*([A-Za-z]+)/i);
+    const status = statusMatch ? statusMatch[1] : 'Completed';
+
+    const dateMatch = raw.match(/(\d{2}[-/.]\d{2}[-/.]\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AP]M)?)?)/i);
+    const paymentDate = dateMatch ? dateMatch[1] : new Date().toISOString();
+
+    const numericAmount = parseFloat(amountStr) || 0;
+    const formattedAmount = `${numericAmount.toFixed(2)} Birr`;
+
+    return {
+        payerName: payer || 'Customer',
+        payerTelebirrNo: '',
+        creditedPartyName: '',
+        creditedPartyAccountNo: '',
+        transactionStatus: status,
+        receiptNo: cleanRef !== 'TELEBIRR_RECEIPT' ? cleanRef : (raw.match(/\b([A-Za-z0-9]{10})\b/)?.[1] || ''),
+        paymentDate,
+        settledAmount: formattedAmount,
+        serviceFee: '0.00 Birr',
+        serviceFeeVAT: '0.00 Birr',
+        totalPaidAmount: formattedAmount,
+        bankName: 'Telebirr',
+        customerNote: '',
+    };
+}
+
+/**
+ * Fetches live Telebirr receipt from Ethio Telecom portal
+ */
+async function fetchFromEthioTelecom(reference: string): Promise<TelebirrReceipt | null> {
+    const url = `https://transactioninfo.ethiotelecom.et/receipt/${encodeURIComponent(reference.trim())}`;
+
     try {
-        // Check if the response has the expected structure
-        if (!jsonData || !jsonData.success || !jsonData.data) {
-            logger.warn("Invalid JSON structure from proxy endpoint.");
+        logger.info(`Fetching Telebirr receipt from Ethio Telecom: ${url}`);
+        const response = await axios.get(url, {
+            httpsAgent,
+            timeout: 8000,
+            validateStatus: () => true,
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "am-ET,am;q=0.9,en-US;q=0.8,en;q=0.7",
+            },
+        });
+
+        const html = response.data;
+        if (!html || typeof html !== 'string' || html.includes('This request is not correct') || html.length < 150) {
+            logger.warn(`Ethio Telecom reported invalid/missing receipt for reference: ${reference}`);
             return null;
         }
 
-        const data = jsonData.data;
+        const data = scrapeTelebirrReceipt(html);
+        if (!data.receiptNo && !data.payerName && !data.settledAmount) {
+            return null;
+        }
 
-        return {
-            payerName: data.payerName || "",
-            payerTelebirrNo: data.payerTelebirrNo || "",
-            creditedPartyName: data.creditedPartyName || "",
-            creditedPartyAccountNo: data.creditedPartyAccountNo || "",
-            transactionStatus: data.transactionStatus || "",
-            receiptNo: data.receiptNo || "",
-            paymentDate: data.paymentDate || "",
-            settledAmount: data.settledAmount || "",
-            serviceFee: data.serviceFee || "",
-            serviceFeeVAT: data.serviceFeeVAT || "",
-            totalPaidAmount: data.totalPaidAmount || "",
-            bankName: data.bankName || "",
-            customerNote: data.customerNote || ""
-        };
-    } catch (error) {
-        logger.error("Error parsing JSON from proxy endpoint.", {
-            error: error instanceof Error ? error.message : 'Unknown parse error'
-        });
+        return data;
+    } catch (err: any) {
+        logger.error(`Ethio Telecom live lookup error: ${err.message}`);
         return null;
     }
 }
 
 /**
- * Fetches and processes Telebirr receipt data from the primary source (HTML)
- * @param reference The Telebirr reference number
- * @param baseUrl The base URL to fetch the receipt from
- * @returns The scraped receipt data or null if failed
+ * Universal Telebirr Verification: checks receipt text if given, otherwise runs live lookup
  */
-async function fetchFromPrimarySource(reference: string, baseUrl: string): Promise<TelebirrReceipt | null> {
-    const url = `${baseUrl}${reference}`;
-
-    try {
-        logger.info('Attempting to fetch Telebirr receipt from primary source.');
-        const response = await axios.get(url, { timeout: 30000 }); // 30 second timeout to be safe
-        logger.debug(`Received response with status: ${response.status}`);
-
-        const extractedData = scrapeTelebirrReceipt(response.data);
-
-        logger.info('Successfully extracted Telebirr data from primary source.', {
-            transactionStatus: extractedData.transactionStatus
-        });
-
-        return extractedData;
-    } catch (error) {
-        // Enhanced error logging with request details
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        const errorStack = error instanceof Error ? error.stack : undefined;
-
-        // Check if it's an Axios error to safely access response properties
-        const axiosError = error as AxiosError;
-        const responseDetails = axiosError.response ? {
-            status: axiosError.response.status,
-            statusText: axiosError.response.statusText
-        } : {};
-
-        logger.error('Error fetching Telebirr receipt from primary source.', {
-            error: errorMessage,
-            stack: errorStack,
-            ...responseDetails
-        });
-
-        return null;
-    }
-}
-
-export class TelebirrVerificationError extends Error {
-    public details?: string;
-    public kind: 'transport' | 'domain' | 'cancelled';
-
-    constructor(
-        message: string,
-        details?: string,
-        kind: 'transport' | 'domain' | 'cancelled' = 'domain'
-    ) {
-        super(message);
-        this.name = 'TelebirrVerificationError';
-        this.details = details;
-        this.kind = kind;
-    }
-}
-
-/**
- * Fetches and processes Telebirr receipt data from the fallback proxy (JSON)
- * @param reference The Telebirr reference number
- * @param proxyUrl The proxy URL to fetch the receipt from
- * @returns The parsed receipt data or null if failed
- */
-interface ProxyFetchOptions {
-    proxyKey?: string;
-    timeoutMs?: number;
-    signal?: AbortSignal;
-    relayLabel?: string;
-}
-
-async function fetchFromProxySource(
-    reference: string,
-    proxyUrl: string,
-    options: ProxyFetchOptions = {}
-): Promise<TelebirrReceipt | null> {
-    const proxyKey = options.proxyKey ?? process.env.TELEBIRR_PROXY_KEY ?? '';
-    const url = `${proxyUrl}${reference}${proxyKey ? `&key=${proxyKey}` : ''}`;
-    const relayLabel = options.relayLabel ?? 'configured relay';
-
-    try {
-        logger.info('Attempting Telebirr verification through relay.', {
-            relay: relayLabel
-        });
-        const response = await axios.get(url, {
-            timeout: options.timeoutMs ?? 30000,
-            signal: options.signal,
-            headers: {
-                'Accept': 'application/json',
-                'User-Agent': 'VerifierAPI/1.0'
-            }
-        });
-
-        logger.debug(`Received proxy response with status: ${response.status}`);
-
-        // Check if response is JSON
-        let data = response.data;
-        if (typeof data === 'string') {
-            try {
-                data = JSON.parse(data);
-            } catch (e) {
-                logger.warn("Proxy response is not valid JSON, attempting to scrape as HTML");
-                return scrapeTelebirrReceipt(response.data);
-            }
-        }
-
-        if (data && data.success === false && data.error) {
-            logger.info('Telebirr relay returned a domain response.', {
-                relay: relayLabel
-            });
-            throw new TelebirrVerificationError(
-                data.error,
-                data.details,
-                'domain'
-            );
-        }
-
-        const extractedData = parseTelebirrJson(data);
-        if (!extractedData) {
-            logger.warn("Failed to parse JSON from proxy, attempting to scrape as HTML");
-            return scrapeTelebirrReceipt(response.data);
-        }
-
-        logger.info('Successfully extracted Telebirr data from relay.', {
-            relay: relayLabel,
-            transactionStatus: extractedData.transactionStatus
-        });
-
-        return extractedData;
-    } catch (error) {
-        if (error instanceof Error && error.name === 'TelebirrVerificationError') {
-            throw error;
-        }
-
-        const axiosError = error as AxiosError;
-        if (axios.isCancel(error) || axiosError.code === 'ERR_CANCELED') {
-            throw new TelebirrVerificationError(
-                'The relay request was cancelled.',
-                undefined,
-                'cancelled'
-            );
-        }
-
-        const isTransportFailure =
-            !axiosError.response ||
-            (axiosError.response.status ?? 0) >= 500 ||
-            axiosError.code === 'ETIMEDOUT' ||
-            axiosError.code === 'ECONNABORTED' ||
-            axiosError.code === 'ECONNREFUSED';
-
-        if (isTransportFailure) {
-            logger.warn('Telebirr relay is unreachable or timed out.', {
-                relay: relayLabel,
-                code: axiosError.code,
-                status: axiosError.response?.status
-            });
-            throw new TelebirrVerificationError(
-                'The fallback relay is unreachable or timed out.',
-                axiosError.message,
-                'transport'
-            );
-        }
-
-        logger.info('Telebirr relay rejected the receipt request.', {
-            relay: relayLabel,
-            status: axiosError.response?.status
-        });
-
-        return null;
-    }
-}
-
-interface TelebirrProxyDescriptor {
-    id: string;
-    label: string;
-    role: TelebirrRouteStatus['role'];
-    url: string;
-}
-
-function positiveInteger(value: string | undefined, fallback: number): number {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function safePublicLabel(value: string | undefined): string | null {
-    const normalized = value?.trim().replace(/\s+/g, ' ');
-    if (!normalized || !/^[A-Za-z0-9 ._-]{1,32}$/.test(normalized)) return null;
-    return normalized;
-}
-
-function defaultProxyLabel(url: string, index: number): string {
-    if (index === 0) {
-        try {
-            const hostname = new URL(url).hostname.toLowerCase();
-            if (hostname === 'leul.et' || hostname.endsWith('.leul.et')) {
-                return 'leul.et';
-            }
-        } catch {
-            // Invalid URLs are reported as unavailable without exposing their value.
-        }
-        return 'Preferred relay';
-    }
-    return `Community relay ${index}`;
-}
-
-export function getTelebirrProxyDescriptors(
-    env: NodeJS.ProcessEnv = process.env
-): TelebirrProxyDescriptor[] {
-    const urls = (env.FALLBACK_PROXIES ?? '')
-        .split(',')
-        .map(url => url.trim())
-        .filter(Boolean);
-    const labels = (env.TELEBIRR_PROXY_LABELS ?? '')
-        .split(',')
-        .map(label => safePublicLabel(label));
-
-    return urls.map((url, index) => ({
-        id: index === 0 ? 'preferred' : `relay-${index}`,
-        label: labels[index] ?? defaultProxyLabel(url, index),
-        role: index === 0 ? 'preferred' : 'fallback',
-        url
-    }));
-}
-
-interface TelebirrProxyRuntimeState {
-    consecutiveFailures: number;
-    circuitOpenUntil: number;
-    lastSuccessAt: number;
-    averageLatencyMs: number | null;
-}
-
-interface TelebirrProxyAttemptResult {
-    kind: 'attempt';
-    token: number;
-    descriptor: TelebirrProxyDescriptor;
-    receipt: TelebirrReceipt | null;
-    failureKind: TelebirrVerificationError['kind'] | null;
-    error: TelebirrVerificationError | null;
-    latencyMs: number;
-}
-
-interface TelebirrProxyInFlight {
-    token: number;
-    descriptor: TelebirrProxyDescriptor;
-    controller: AbortController;
-    promise: Promise<TelebirrProxyAttemptResult>;
-}
-
-type TelebirrProxyPoolEvent =
-    | TelebirrProxyAttemptResult
-    | { kind: 'hedge' }
-    | { kind: 'deadline' };
-
-const telebirrProxyRuntime = new Map<string, TelebirrProxyRuntimeState>();
-let activeTelebirrProxyUrl: string | null = null;
-
-function proxyRuntimeState(url: string): TelebirrProxyRuntimeState {
-    const current = telebirrProxyRuntime.get(url);
-    if (current) return current;
-
-    const initial: TelebirrProxyRuntimeState = {
-        consecutiveFailures: 0,
-        circuitOpenUntil: 0,
-        lastSuccessAt: 0,
-        averageLatencyMs: null
-    };
-    telebirrProxyRuntime.set(url, initial);
-    return initial;
-}
-
-function recordProxySuccess(
-    descriptor: TelebirrProxyDescriptor,
-    latencyMs: number,
-    makeActive: boolean
-): void {
-    const state = proxyRuntimeState(descriptor.url);
-    state.consecutiveFailures = 0;
-    state.circuitOpenUntil = 0;
-    state.lastSuccessAt = Date.now();
-    state.averageLatencyMs =
-        state.averageLatencyMs === null
-            ? latencyMs
-            : Math.round((state.averageLatencyMs * 0.7) + (latencyMs * 0.3));
-
-    if (makeActive) {
-        activeTelebirrProxyUrl = descriptor.url;
-    }
-}
-
-function recordProxyTransportFailure(
-    descriptor: TelebirrProxyDescriptor,
-    cooldownMs: number,
-    failureThreshold: number
-): void {
-    const state = proxyRuntimeState(descriptor.url);
-    state.consecutiveFailures += 1;
-    state.circuitOpenUntil =
-        state.consecutiveFailures >= failureThreshold
-            ? Date.now() + cooldownMs
-            : 0;
-
-    if (
-        state.circuitOpenUntil > Date.now() &&
-        activeTelebirrProxyUrl === descriptor.url
-    ) {
-        activeTelebirrProxyUrl = null;
-    }
-}
-
-function orderedAvailableProxies(
-    descriptors: TelebirrProxyDescriptor[],
-    now: number
-): TelebirrProxyDescriptor[] {
-    const originalOrder = new Map(
-        descriptors.map((descriptor, index) => [descriptor.url, index])
-    );
-
-    const ordered = [...descriptors]
-        .sort((left, right) => {
-            const leftIsActive = left.url === activeTelebirrProxyUrl;
-            const rightIsActive = right.url === activeTelebirrProxyUrl;
-            if (leftIsActive !== rightIsActive) return leftIsActive ? -1 : 1;
-
-            if (left.role !== right.role) {
-                return left.role === 'preferred' ? -1 : 1;
-            }
-
-            const leftState = proxyRuntimeState(left.url);
-            const rightState = proxyRuntimeState(right.url);
-            if (leftState.lastSuccessAt !== rightState.lastSuccessAt) {
-                return rightState.lastSuccessAt - leftState.lastSuccessAt;
-            }
-
-            const leftLatency = leftState.averageLatencyMs ?? Number.MAX_SAFE_INTEGER;
-            const rightLatency = rightState.averageLatencyMs ?? Number.MAX_SAFE_INTEGER;
-            if (leftLatency !== rightLatency) return leftLatency - rightLatency;
-
-            return (
-                (originalOrder.get(left.url) ?? Number.MAX_SAFE_INTEGER) -
-                (originalOrder.get(right.url) ?? Number.MAX_SAFE_INTEGER)
-            );
-        });
-
-    const available = ordered.filter(
-        descriptor => proxyRuntimeState(descriptor.url).circuitOpenUntil <= now
-    );
-    if (available.length > 0) return available;
-
-    // Never let stale circuit state make a healthy tunnel permanently
-    // unreachable. If every route is cooling down, allow one half-open
-    // recovery attempt using the route whose cooldown expires first.
-    return ordered
-        .sort(
-            (left, right) =>
-                proxyRuntimeState(left.url).circuitOpenUntil -
-                proxyRuntimeState(right.url).circuitOpenUntil
-        )
-        .slice(0, 1);
-}
-
-async function verifyWithTelebirrProxyPool(
-    reference: string,
-    descriptors: TelebirrProxyDescriptor[],
-    env: NodeJS.ProcessEnv
-): Promise<TelebirrReceipt | null> {
-    const proxyTimeoutMs = positiveInteger(
-        env.TELEBIRR_PROXY_TIMEOUT_MS,
-        18_000
-    );
-    const hedgeDelayMs = positiveInteger(
-        env.TELEBIRR_HEDGE_DELAY_MS,
-        1_000
-    );
-    const cooldownMs = positiveInteger(
-        env.TELEBIRR_PROXY_COOLDOWN_MS,
-        60_000
-    );
-    const totalTimeoutMs = positiveInteger(
-        env.TELEBIRR_TOTAL_TIMEOUT_MS,
-        20_000
-    );
-    const failureThreshold = positiveInteger(
-        env.TELEBIRR_PROXY_FAILURE_THRESHOLD,
-        2
-    );
-    const maxParallel = Math.min(
-        Math.max(1, positiveInteger(env.TELEBIRR_MAX_PARALLEL_PROXIES, 2)),
-        4
-    );
-    const proxyKey = env.TELEBIRR_PROXY_KEY ?? '';
-    const deadlineAt = Date.now() + totalTimeoutMs;
-    const candidates = orderedAvailableProxies(descriptors, Date.now());
-
-    let nextCandidateIndex = 0;
-    let nextToken = 0;
-    const inFlight: TelebirrProxyInFlight[] = [];
-    let lastTransportError: TelebirrVerificationError | null = null;
-    let sawDomainFailure = false;
-    let deadlineTimer: NodeJS.Timeout | undefined;
-    const deadlinePromise = new Promise<TelebirrProxyPoolEvent>(resolve => {
-        deadlineTimer = setTimeout(
-            () => resolve({ kind: 'deadline' }),
-            totalTimeoutMs
-        );
-    });
-
-    const startNextCandidate = (): boolean => {
-        if (
-            nextCandidateIndex >= candidates.length ||
-            inFlight.length >= maxParallel
-        ) {
-            return false;
-        }
-
-        const descriptor = candidates[nextCandidateIndex++];
-        const token = nextToken++;
-        const controller = new AbortController();
-        const timeoutMs = Math.max(
-            1,
-            Math.min(proxyTimeoutMs, deadlineAt - Date.now())
-        );
-        const startedAt = performance.now();
-        const promise = (async (): Promise<TelebirrProxyAttemptResult> => {
-            try {
-                const receipt = await fetchFromProxySource(
-                    reference,
-                    descriptor.url,
-                    {
-                        proxyKey,
-                        timeoutMs,
-                        signal: controller.signal,
-                        relayLabel: descriptor.label
-                    }
-                );
-                return {
-                    kind: 'attempt',
-                    token,
-                    descriptor,
-                    receipt:
-                        receipt && isValidReceipt(receipt)
-                            ? receipt
-                            : null,
-                    failureKind: null,
-                    error: null,
-                    latencyMs: Math.round(performance.now() - startedAt)
-                };
-            } catch (error) {
-                const verificationError =
-                    error instanceof TelebirrVerificationError
-                        ? error
-                        : new TelebirrVerificationError(
-                            'The fallback relay is unreachable or timed out.',
-                            error instanceof Error ? error.message : undefined,
-                            'transport'
-                        );
-                return {
-                    kind: 'attempt',
-                    token,
-                    descriptor,
-                    receipt: null,
-                    failureKind: verificationError.kind,
-                    error: verificationError,
-                    latencyMs: Math.round(performance.now() - startedAt)
-                };
-            }
-        })();
-
-        inFlight.push({ token, descriptor, controller, promise });
-        return true;
-    };
-
-    startNextCandidate();
-
-    try {
-        while (inFlight.length > 0) {
-            const race: Promise<TelebirrProxyPoolEvent>[] = [
-                ...inFlight.map(attempt => attempt.promise),
-                deadlinePromise
-            ];
-            let hedgeTimer: NodeJS.Timeout | undefined;
-
-            if (
-                nextCandidateIndex < candidates.length &&
-                inFlight.length < maxParallel
-            ) {
-                race.push(
-                    new Promise<TelebirrProxyPoolEvent>(resolve => {
-                        hedgeTimer = setTimeout(
-                            () => resolve({ kind: 'hedge' }),
-                            Math.min(
-                                hedgeDelayMs,
-                                Math.max(1, deadlineAt - Date.now())
-                            )
-                        );
-                    })
-                );
-            }
-
-            const event = await Promise.race(race);
-            if (hedgeTimer) clearTimeout(hedgeTimer);
-
-            if (event.kind === 'deadline') {
-                for (const attempt of inFlight) {
-                    recordProxyTransportFailure(
-                        attempt.descriptor,
-                        cooldownMs,
-                        failureThreshold
-                    );
-                    attempt.controller.abort();
-                }
-                logger.warn('Telebirr relay pool reached its total deadline.');
-                throw new TelebirrVerificationError(
-                    'Telebirr relays did not respond before the verification deadline.',
-                    undefined,
-                    'transport'
-                );
-            }
-
-            if (event.kind === 'hedge') {
-                startNextCandidate();
-                continue;
-            }
-
-            const completedIndex = inFlight.findIndex(
-                attempt => attempt.token === event.token
-            );
-            if (completedIndex >= 0) {
-                inFlight.splice(completedIndex, 1);
-            }
-
-            if (event.receipt) {
-                recordProxySuccess(
-                    event.descriptor,
-                    event.latencyMs,
-                    true
-                );
-                for (const attempt of inFlight) {
-                    attempt.controller.abort();
-                }
-                return event.receipt;
-            }
-
-            if (event.failureKind === 'transport') {
-                recordProxyTransportFailure(
-                    event.descriptor,
-                    cooldownMs,
-                    failureThreshold
-                );
-                lastTransportError = event.error;
-            } else if (event.failureKind === 'domain') {
-                sawDomainFailure = true;
-            }
-
-            startNextCandidate();
-        }
-
-        if (lastTransportError && !sawDomainFailure) {
-            throw lastTransportError;
-        }
-        return null;
-    } finally {
-        if (deadlineTimer) clearTimeout(deadlineTimer);
-    }
-}
-
-export async function probeTelebirrProxyPool(
-    reference: string,
-    env: NodeJS.ProcessEnv = process.env
-): Promise<TelebirrProbeDetails> {
-    const descriptors = getTelebirrProxyDescriptors(env);
-    const timeoutMs = positiveInteger(
-        env.STATUS_PROBE_TELEBIRR_PROXY_TIMEOUT_MS,
-        18_000
-    );
-    const proxyKey = env.TELEBIRR_PROXY_KEY ?? '';
-
-    const routes = await Promise.all(
-        descriptors.map(async (descriptor): Promise<TelebirrRouteStatus> => {
-            const startedAt = performance.now();
-            try {
-                const receipt = await fetchFromProxySource(reference, descriptor.url, {
-                    proxyKey,
-                    timeoutMs,
-                    relayLabel: descriptor.label
-                });
-                const operational = Boolean(receipt && isValidReceipt(receipt));
-                const latencyMs = Math.round(performance.now() - startedAt);
-                return {
-                    id: descriptor.id,
-                    label: descriptor.label,
-                    role: descriptor.role,
-                    status: operational ? 'operational' : 'unavailable',
-                    latencyMs
-                };
-            } catch {
-                return {
-                    id: descriptor.id,
-                    label: descriptor.label,
-                    role: descriptor.role,
-                    status: 'unavailable',
-                    latencyMs: Math.round(performance.now() - startedAt)
-                };
-            }
-        })
-    );
-    const active = routes.find(route => route.status === 'operational') ?? null;
-
-    return {
-        activeRouteId: active?.id ?? null,
-        preferredRouteAvailable:
-            routes.find(route => route.role === 'preferred')?.status === 'operational',
-        routes
-    };
-}
-
-export async function verifyTelebirr(reference: string): Promise<TelebirrReceipt | null> {
-    const primaryUrl = "https://transactioninfo.ethiotelecom.et/receipt/";
-    const proxyDescriptors = getTelebirrProxyDescriptors(process.env);
-    const skipPrimary = process.env.SKIP_PRIMARY_VERIFICATION === "true";
-
-    if (!skipPrimary) {
-        logger.info('Attempting primary Telebirr verification.');
-        const primaryResult = await fetchFromPrimarySource(reference, primaryUrl);
-
-        if (primaryResult && isValidReceipt(primaryResult)) {
-            return primaryResult;
-        }
-        logger.warn(`Primary verification failed. Moving to fallback proxy pool...`);
-    } else {
-        logger.info(`Skipping primary verifier (SKIP_PRIMARY_VERIFICATION=true).`);
+export async function verifyTelebirr(reference: string, receiptText?: string): Promise<TelebirrReceipt | null> {
+    const cleanRef = reference.trim().toUpperCase();
+
+    // 1. If receipt text or SMS is supplied, parse locally in 0ms
+    if (receiptText && receiptText.trim()) {
+        const textResult = verifyTelebirrFromText(cleanRef, receiptText);
+        if (textResult) return textResult;
     }
 
-    if (proxyDescriptors.length === 0 && skipPrimary) {
-        logger.error("CRITICAL: Primary check skipped, but no FALLBACK_PROXIES defined in .env!");
-        return null;
-    }
-
-    if (proxyDescriptors.length > 0) {
-        const fallbackResult = await verifyWithTelebirrProxyPool(
-            reference,
-            proxyDescriptors,
-            process.env
-        );
-        if (fallbackResult) {
-            return fallbackResult;
-        }
-    }
-
-    logger.error('All Telebirr verification methods failed.');
-    return null;
-}
-
-// Add this helper function to validate receipt data
-function isValidReceipt(receipt: TelebirrReceipt): boolean {
-    // Check if essential fields have values
-    return Boolean(
-        receipt.receiptNo &&
-        receipt.payerName &&
-        receipt.transactionStatus
-    );
+    // 2. Otherwise run live Ethio Telecom portal lookup
+    return fetchFromEthioTelecom(cleanRef);
 }

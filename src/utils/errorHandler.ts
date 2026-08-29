@@ -1,8 +1,3 @@
-// import { Prisma } from '@prisma/client';
-import {
-    PrismaClientKnownRequestError,
-    PrismaClientValidationError,
-} from '@prisma/client/runtime/library';
 import logger from './logger';
 import { Response } from 'express';
 
@@ -31,58 +26,39 @@ export class AppError extends Error {
     }
 }
 
-// Handle Prisma-specific errors
+// Handle database / general errors
 export const handlePrismaError = (error: any): AppError => {
-    if (error instanceof PrismaClientKnownRequestError) {
-        // Handle known Prisma errors
-        switch (error.code) {
-            case 'P2002': // Unique constraint violation
-                return new AppError(
-                    'A record with this value already exists.',
-                    ErrorType.VALIDATION,
-                    409,
-                    { fields: error.meta?.target }
-                );
-            case 'P2025': // Record not found
-                return new AppError(
-                    'Record not found.',
-                    ErrorType.NOT_FOUND,
-                    404
-                );
-            case 'P2003': // Foreign key constraint failed
-                return new AppError(
-                    'Operation failed due to a relation constraint.',
-                    ErrorType.VALIDATION,
-                    400,
-                    { fields: error.meta?.field_name }
-                );
-            default:
-                logger.error(`Unhandled Prisma error: ${error.code}`, error);
-                return new AppError(
-                    'Database operation failed.',
-                    ErrorType.DATABASE,
-                    500
-                );
-        }
-    } else if (error instanceof PrismaClientValidationError) {
-        // Handle validation errors
+    if (error instanceof AppError) {
+        // Pass through our custom errors
+        return error;
+    }
+
+    // Postgres / Drizzle error codes
+    const code = (error as any)?.code;
+    if (code === '23505') {
+        // unique_violation
         return new AppError(
-            'Invalid data provided.',
+            'A record with this value already exists.',
+            ErrorType.VALIDATION,
+            409
+        );
+    }
+    if (code === '23503') {
+        // foreign_key_violation
+        return new AppError(
+            'Operation failed due to a relation constraint.',
             ErrorType.VALIDATION,
             400
         );
-    } else if (error instanceof AppError) {
-        // Pass through our custom errors
-        return error;
-    } else {
-        // Handle unknown errors
-        logger.error('Unknown error:', error);
-        return new AppError(
-            'An unexpected error occurred.',
-            ErrorType.INTERNAL,
-            500
-        );
     }
+
+    // Handle unknown errors
+    logger.error('Unknown error:', error);
+    return new AppError(
+        'An unexpected error occurred.',
+        ErrorType.INTERNAL,
+        500
+    );
 };
 
 // Send error response

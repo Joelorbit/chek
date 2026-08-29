@@ -35,9 +35,9 @@ test('rejects CBE text whose receipt reference does not match', () => {
   assert.equal(result.error, 'Receipt text reference does not match the supplied reference.');
 });
 
-test('rejects incomplete CBE receipt text', () => {
-  const result = verifyCBEFromText(reference, 'CBE Reference No. (VAT Invoice No): FT1234567890');
+test('rejects incomplete CBE receipt text with missing amount', () => {
+  const result = verifyCBEFromText(reference, 'CBE Reference No: FT1234567890 without amount');
 
   assert.equal(result.success, false);
-  assert.equal(result.error, 'Could not extract all required fields from receipt text.');
+  assert.equal(result.error, 'Could not extract reference or amount from CBE receipt text.');
 });

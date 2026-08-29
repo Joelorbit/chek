@@ -5,220 +5,124 @@ import multer from "multer";
 import logger from "../utils/logger";
 import { verifyTelebirr } from "./verifyTelebirr";
 import { verifyCBE } from "./verifyCBE";
-import { db } from "../db";
-import { workspaces } from "../db/schema";
-import { eq, and, gt, sql } from "drizzle-orm";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-// ─── Credit refund helper ─────────────────────────────────────────────────────
-
-type ResolvedAccount = { creditHolder: 'workspace'; creditHolderId: string } | undefined;
-
-async function refundCredit(account: ResolvedAccount): Promise<void> {
-    if (!account?.creditHolderId) return;
-    await db.update(workspaces)
-        .set({ imageCredits: sql`${workspaces.imageCredits} + 1` })
-        .where(eq(workspaces.id, account.creditHolderId));
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
 const upload = multer({ dest: "uploads/" });
 
-const client = new Mistral({
-    apiKey: process.env.MISTRAL_API_KEY!,
-});
+const getMistralClient = () => {
+  const apiKey = process.env.MISTRAL_API_KEY;
+  if (!apiKey) return null;
+  return new Mistral({ apiKey });
+};
 
 export const verifyImageHandler = [
-    upload.single("file"),
+  upload.single("file"),
 
-    async (req: Request, res: Response): Promise<void> => {
-        // ── Resolve API key identity (set by apiKeyAuth) ──────────────────────
-        const apiKeyData = (req as any).apiKeyData as { id: string } | undefined;
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const autoVerify = req.query.autoVerify === "true";
+      const accountSuffix = req.body?.suffix || null;
 
-        try {
-            const autoVerify = req.query.autoVerify === "true";
-            const accountSuffix = req.body?.suffix || null;
+      if (!req.file) {
+        logger.warn("No file uploaded");
+        res.status(400).json({ success: false, error: "No file uploaded." });
+        return;
+      }
 
-            // ── 1. File must be present before we consume a credit ────────────
-            if (!req.file) {
-                logger.warn("No file uploaded");
-                res.status(400).json({ error: "No file uploaded" });
-                return;
-            }
+      const client = getMistralClient();
+      if (!client) {
+        res.status(503).json({ success: false, error: "MISTRAL_API_KEY is not configured for image OCR." });
+        return;
+      }
 
-            // ── 2. Atomic credit decrement ────────────────────────────────────
-            // Uses updateMany with gt:0 guard so concurrent requests can never
-            // overdraft below zero.  If count === 0 the balance was exhausted
-            // by a concurrent request since the gate ran — return 402.
-            //
-            // resolvedAccount is set by verifyImageGate and points at the
-            const resolvedAccount = (req as any).resolvedAccount as ResolvedAccount;
-            if (resolvedAccount?.creditHolderId) {
-                await db.update(workspaces)
-                    .set({ imageCredits: sql`${workspaces.imageCredits} - 1` })
-                    .where(and(eq(workspaces.id, resolvedAccount.creditHolderId), gt(workspaces.imageCredits, 0)));
-            }
+      const filePath = req.file.path;
+      const imageBuffer = fs.readFileSync(filePath);
+      const base64Image = imageBuffer.toString("base64");
 
-            // ── 3. Call Mistral Vision ────────────────────────────────────────
-            const filePath = req.file.path;
-            const imageBuffer = fs.readFileSync(filePath);
-            const base64Image = imageBuffer.toString("base64");
+      const prompt = `
+You are an Ethiopian payment receipt analyzer. Based on the uploaded image, determine:
+- If the receipt was issued by Telebirr or the Commercial Bank of Ethiopia (CBE) or other banks.
+- If it's a CBE receipt, extract the transaction ID (starts with 'FT').
+- If it's a Telebirr receipt, extract the transaction number (10 uppercase alphanumeric characters).
 
-            const prompt = `
-You are a payment receipt analyzer. Based on the uploaded image, determine:
-- If the receipt was issued by Telebirr or the Commercial Bank of Ethiopia (CBE).
-- If it's a CBE receipt, extract the transaction ID (usually starts with 'FT').
-- If it's a Telebirr receipt, extract the transaction number (usually 10 uppercase alphanumeric characters; CBE Birr receipts also use this format).
-
-Rules:
-- CBE receipts usually include a purple header with the title "Commercial Bank of Ethiopia" and a structured table.
-- Telebirr receipts are typically green with a large minus sign before the amount.
-- CBE receipts may mention Telebirr (as the receiver) but are still CBE receipts.
-
-Return this JSON format exactly, with no extra prose:
+Return this JSON format exactly:
 {
-  "type": "telebirr" | "cbe",
-  "transaction_id"?: "FTxxxx" (if CBE),
-  "transaction_number"?: "string" (if Telebirr / CBE Birr)
+  "type": "telebirr" | "cbe" | "other",
+  "transaction_id": "string",
+  "transaction_number": "string"
 }
-            `.trim();
+      `.trim();
 
-            logger.info("Sending image to Mistral Vision (ministral-14b-2512)...");
+      const chatResponse = await client.chat.complete({
+        model: "ministral-14b-2512",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              {
+                type: "image_url",
+                imageUrl: `data:image/jpeg;base64,${base64Image}`,
+              },
+            ],
+          },
+        ],
+        responseFormat: { type: "json_object" },
+      });
 
-            let chatResponse;
-            try {
-                chatResponse = await client.chat.complete({
-                    model: "ministral-14b-2512",
-                    messages: [
-                        {
-                            role: "user",
-                            content: [
-                                { type: "text", text: prompt },
-                                {
-                                    type: "image_url",
-                                    imageUrl: `data:image/jpeg;base64,${base64Image}`,
-                                },
-                            ],
-                        },
-                    ],
-                    responseFormat: { type: "json_object" },
-                });
-            } catch (mistralErr) {
-                // Mistral itself is unavailable — refund the credit (not the user's fault)
-                logger.error("Mistral API call failed, refunding credit:", mistralErr);
-                await refundCredit(resolvedAccount).catch((e) => logger.error("Failed to refund credit:", e));
-                res.status(503).json({ error: "OCR service temporarily unavailable. Your credit has been refunded." });
-                return;
-            }
+      // Cleanup temp uploaded file
+      try { fs.unlinkSync(filePath); } catch {}
 
-            const rawMessage = chatResponse.choices?.[0]?.message as
-                | { content?: string | Array<{ type: string; text?: string }> }
-                | undefined;
-            const rawContent = rawMessage?.content;
+      const rawMessage = chatResponse.choices?.[0]?.message as any;
+      const messageContent = typeof rawMessage?.content === "string"
+        ? rawMessage.content
+        : Array.isArray(rawMessage?.content)
+          ? rawMessage.content.map((c: any) => c.text || '').join('\n')
+          : null;
 
-            // The newer Mistral SDK may return content as a string OR as an array
-            // of content chunks. Normalize both into a single text string.
-            let messageContent: string | null = null;
-            if (typeof rawContent === "string") {
-                messageContent = rawContent;
-            } else if (Array.isArray(rawContent)) {
-                messageContent = rawContent
-                    .filter((chunk) => chunk?.type === "text" && typeof chunk.text === "string")
-                    .map((chunk) => chunk.text as string)
-                    .join("\n")
-                    .trim();
-                if (!messageContent) messageContent = null;
-            }
+      if (!messageContent) {
+        res.status(500).json({ success: false, error: "Could not extract receipt data from image." });
+        return;
+      }
 
-            if (!messageContent) {
-                // Unexpected Mistral response — refund (our infrastructure fault)
-                logger.error("Invalid Mistral response", { rawContent });
-                await refundCredit(resolvedAccount).catch((e) => logger.error("Failed to refund credit:", e));
-                res.status(500).json({ error: "Invalid OCR response. Your credit has been refunded." });
-                return;
-            }
+      const parsed = JSON.parse(messageContent);
+      const reference = parsed.transaction_id || parsed.transaction_number || parsed.reference;
 
-            // ── 4. Parse and route result (credit already consumed) ───────────
-            const result = JSON.parse(messageContent);
-            logger.info("OCR Result", result);
+      if (!reference) {
+        res.status(404).json({ success: false, error: "No transaction reference found in receipt image." });
+        return;
+      }
 
-            if (result.type === "telebirr" && result.transaction_number) {
-                if (autoVerify) {
-                    try {
-                        const data = await verifyTelebirr(result.transaction_number);
-                        res.json({
-                            verified: true,
-                            type: "telebirr",
-                            reference: result.transaction_number,
-                            details: data,
-                        });
-                    } catch (verifyErr: any) {
-                        logger.error("Telebirr verification failed", { verifyErr });
-                        if (verifyErr.name === "TelebirrVerificationError") {
-                            res.status(502).json({ error: verifyErr.message, details: verifyErr.details });
-                        } else {
-                            res.status(500).json({ error: "Verification failed for Telebirr" });
-                        }
-                    }
-                } else {
-                    res.json({
-                        type: "telebirr",
-                        reference: result.transaction_number,
-                        forward_to: "/verify-telebirr",
-                    });
-                }
-                return;
-            }
+      if (!autoVerify) {
+        res.json({
+          success: true,
+          ocrResult: parsed,
+          reference,
+          type: parsed.type,
+        });
+        return;
+      }
 
-            if (result.type === "cbe" && result.transaction_id) {
-                if (!autoVerify) {
-                    res.json({
-                        type: "cbe",
-                        reference: result.transaction_id,
-                        forward_to: "/verify-cbe",
-                        accountSuffix: "required_from_user",
-                    });
-                    return;
-                }
-
-                if (!accountSuffix) {
-                    res.status(400).json({
-                        error: "Account suffix is required for CBE verification in autoVerify mode",
-                    });
-                    return;
-                }
-
-                try {
-                    const data = await verifyCBE(result.transaction_id, accountSuffix);
-                    res.json({
-                        verified: true,
-                        type: "cbe",
-                        reference: result.transaction_id,
-                        details: data,
-                    });
-                } catch (verifyErr) {
-                    logger.error("CBE verification failed", { verifyErr });
-                    res.status(500).json({ error: "Verification failed for CBE" });
-                }
-                return;
-            }
-
-            res.status(422).json({ error: "Unknown or unrecognized receipt type" });
-
-        } catch (err) {
-            logger.error(
-                `Unexpected error in /verify-image: ${err instanceof Error ? err.message : String(err)}`,
-                { stack: err instanceof Error ? err.stack : undefined },
-            );
-            res.status(500).json({ error: "Something went wrong processing the image." });
-        } finally {
-            if (req.file?.path) {
-                try { fs.unlinkSync(req.file.path); } catch { /* already deleted */ }
-                logger.debug("Temp file deleted", { path: req.file.path });
-            }
+      if (parsed.type === "cbe") {
+        if (!accountSuffix) {
+          res.status(400).json({
+            success: false,
+            error: "CBE verification requires account suffix (last 8 digits)",
+            reference,
+          });
+          return;
         }
-    },
+        const verification = await verifyCBE(reference, accountSuffix);
+        res.json({ success: true, ocrResult: parsed, verification });
+      } else {
+        const verification = await verifyTelebirr(reference);
+        res.json({ success: true, ocrResult: parsed, verification });
+      }
+    } catch (err: any) {
+      logger.error("Error verifying receipt image:", err);
+      res.status(500).json({ success: false, error: err.message || "Failed to process image." });
+    }
+  },
 ];

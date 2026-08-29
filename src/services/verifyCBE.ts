@@ -17,6 +17,8 @@ export interface VerifyResult {
     reason?: string | null;
     error?: string;
     statusCode?: number;
+    verificationMode?: string;
+    receiptTextVerified?: boolean;
 }
 
 function titleCase(str: string): string {
@@ -35,7 +37,7 @@ interface CBETransactionResponse {
 }
 
 function parseAmount(value?: string): number | undefined {
-    const parsed = value ? Number.parseFloat(value) : NaN;
+    const parsed = value ? Number.parseFloat(value.replace(/,/g, '')) : NaN;
     return Number.isFinite(parsed) ? parsed : undefined;
 }
 
@@ -47,9 +49,10 @@ function mapNewCBEReceipt(data: CBETransactionResponse): VerifyResult {
         receiver: data.creditAccountHolder,
         receiverAccount: data.creditAccountNo,
         amount: parseAmount(data.amountCredited),
-        date: data.dateTimes?.[0] ? new Date(data.dateTimes[0]) : undefined,
+        date: data.dateTimes?.[0] ? new Date(data.dateTimes[0]) : new Date(),
         reference: data.id,
-        reason: data.paymentDetails?.join(' ') || null
+        reason: data.paymentDetails?.join(' ') || null,
+        verificationMode: 'LIVE_API',
     };
 }
 
@@ -62,7 +65,7 @@ export async function verifyCBELegacy(
     const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
     try {
-        logger.info(`🔎 Attempting direct fetch: ${url}`);
+        logger.info(`🔎 Attempting direct CBE legacy fetch: ${url}`);
         const response: AxiosResponse<ArrayBuffer> = await axios.get(url, {
             httpsAgent,
             responseType: 'arraybuffer',
@@ -70,7 +73,7 @@ export async function verifyCBELegacy(
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
                 'Accept': 'application/pdf'
             },
-            timeout: 30000
+            timeout: 10000
         });
 
         logger.info('✅ Direct fetch success, parsing PDF');
@@ -103,17 +106,18 @@ export async function verifyCBELegacy(
                 }
             });
 
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
-            await new Promise(res => setTimeout(res, 6000));
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 12000 });
+            await new Promise(res => setTimeout(res, 4000));
             await browser.close();
 
             if (!detectedPdfUrl) {
-                return { success: false, error: 'No PDF detected via Puppeteer.' };
+                return { success: false, error: 'No PDF detected from CBE legacy portal.' };
             }
 
             const pdfRes = await axios.get(detectedPdfUrl, {
                 httpsAgent,
-                responseType: 'arraybuffer'
+                responseType: 'arraybuffer',
+                timeout: 8000,
             });
 
             return await parseCBEReceipt(pdfRes.data);
@@ -122,7 +126,7 @@ export async function verifyCBELegacy(
             if (browser) await browser.close();
             return {
                 success: false,
-                error: `Both direct and Puppeteer failed: ${puppetErr.message}`
+                error: `Could not verify legacy CBE receipt: ${puppetErr.message}`
             };
         }
     }
@@ -131,8 +135,8 @@ export async function verifyCBELegacy(
 export async function verifyCBENew(token: string): Promise<VerifyResult> {
     const httpsAgent = new https.Agent({ rejectUnauthorized: false });
     const url = `https://mb.cbe.com.et/api/v1/transactions/public/transaction-detail/${token}`;
-    const maxRetries = 4;
-    const retryDelayMs = 1800;
+    const maxRetries = 2;
+    const retryDelayMs = 1000;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -147,21 +151,13 @@ export async function verifyCBENew(token: string): Promise<VerifyResult> {
                     'x-app-id': process.env.CBE_APP_ID || 'd1292e42-7400-49de-a2d3-9731caa4c819',
                     'x-app-version': process.env.CBE_APP_VERSION || '0a01980b-9859-1369-8198-59f403820000'
                 },
-                timeout: 15000
+                timeout: 8000
             });
 
             return mapNewCBEReceipt(response.data);
         } catch (err: any) {
             const statusCode = err.response?.status;
             const isLastAttempt = attempt === maxRetries;
-            const isRetryable =
-                !statusCode ||
-                statusCode === 429 ||
-                statusCode === 502 ||
-                statusCode === 503 ||
-                statusCode === 504;
-
-            logger.warn(`⚠️ New CBE verification attempt ${attempt}/${maxRetries} failed: ${err.message}`);
 
             if (statusCode === 404) {
                 return {
@@ -171,10 +167,10 @@ export async function verifyCBENew(token: string): Promise<VerifyResult> {
                 };
             }
 
-            if (!isRetryable || isLastAttempt) {
+            if (isLastAttempt) {
                 return {
                     success: false,
-                    error: 'CBE receipt service is temporarily unavailable. Please try again.',
+                    error: 'CBE receipt service is currently unreachable.',
                     statusCode: 502
                 };
             }
@@ -185,7 +181,7 @@ export async function verifyCBENew(token: string): Promise<VerifyResult> {
 
     return {
         success: false,
-        error: 'CBE receipt service is temporarily unavailable. Please try again.',
+        error: 'CBE receipt service is currently unreachable.',
         statusCode: 502
     };
 }
@@ -199,10 +195,11 @@ export async function verifyCBE(reference: string, accountSuffix?: string): Prom
 
     const token = extractNewCbeToken(reference);
     if (token) return verifyCBENew(token);
+
     if (!accountSuffix?.trim()) {
         return {
             success: false,
-            error: 'Missing accountSuffix for legacy CBE verification.',
+            error: 'Legacy CBE verification requires an 8-digit account suffix (e.g. FT1234567890 with suffix 12345678). Or use receipt text.',
             statusCode: 400
         };
     }
@@ -215,14 +212,19 @@ export function verifyCBEFromText(reference: string, receiptText: string): Verif
 
     if (!result.success) return result;
 
-    if (result.reference && result.reference.toUpperCase() !== normalizedReference.toUpperCase()) {
+    if (result.reference && result.reference.toUpperCase() !== normalizedReference.toUpperCase() && normalizedReference.length > 0) {
         return {
             success: false,
             error: 'Receipt text reference does not match the supplied reference.'
         };
     }
 
-    return { ...result, reference: normalizedReference };
+    return {
+        ...result,
+        reference: result.reference || normalizedReference,
+        verificationMode: 'LOCAL_TEXT',
+        receiptTextVerified: true,
+    };
 }
 
 async function parseCBEReceipt(buffer: ArrayBuffer): Promise<VerifyResult> {
@@ -238,39 +240,57 @@ async function parseCBEReceipt(buffer: ArrayBuffer): Promise<VerifyResult> {
 function parseCBEReceiptText(receiptText: string): VerifyResult {
     const rawText = receiptText.replace(/\s+/g, ' ').trim();
 
-    let payerName = rawText.match(/Payer\s*:?\s*(.*?)\s+Account/i)?.[1]?.trim();
-    let receiverName = rawText.match(/Receiver\s*:?\s*(.*?)\s+Account/i)?.[1]?.trim();
-    const accountMatches = [...rawText.matchAll(/Account\s*:?\s*([A-Z0-9]?\*{4}\d{4})/gi)];
-    const payerAccount = accountMatches?.[0]?.[1];
-    const receiverAccount = accountMatches?.[1]?.[1];
+    // 1. Extract reference: e.g. "FT1234567890", "Reference No. (VAT Invoice No): FT1234567890", "Ref: FT1234567890"
+    const referenceMatch = rawText.match(/(?:reference\s+no\.?(?:\s*\([^)]*\))?|vat\s+invoice\s+no\.?|ref(?:\s+no)?\.?|txn\s+id)\s*[:\-]?\s*([A-Za-z0-9]+)/i)?.[1]
+      || rawText.match(/\b(FT[A-Za-z0-9]{10})\b/i)?.[1];
 
-    const reason = rawText.match(/Reason\s*\/\s*Type of service\s*:?\s*(.*?)\s+Transferred Amount/i)?.[1]?.trim();
-    const amountText = rawText.match(/Transferred Amount\s*:?\s*([\d,]+\.\d{2})\s*ETB/i)?.[1];
-    const referenceMatch = rawText.match(/Reference No\.?\s*\(VAT Invoice No\)\s*:?\s*([A-Z0-9]+)/i)?.[1]?.trim();
-    const dateRaw = rawText.match(/Payment Date & Time\s*:?\s*([\d\/:, ]+[APM]{2})/i)?.[1]?.trim();
+    // 2. Extract amount: e.g. "Transferred Amount: 1,234.50 ETB", "credited with ETB 1,234.50", "1,234.50 ETB"
+    const amountMatch = rawText.match(/(?:transferred\s+amount|credited\s+with|amount|paid)\s*[:\-]?\s*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i)
+      || rawText.match(/([\d,]+(?:\.\d{1,2})?)\s*(?:etb|birr)/i);
+    const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : undefined;
 
-    const amount = amountText ? parseFloat(amountText.replace(/,/g, '')) : undefined;
-    const date = dateRaw ? new Date(dateRaw) : undefined;
+    // 3. Extract payer: e.g. "Payer: John Doe Account", "by John Doe", "Payer Name: John Doe"
+    let payerName = rawText.match(/Payer\s*:?\s*(.*?)\s+Account/i)?.[1]?.trim()
+      || rawText.match(/(?:by|from|payer(?:\s+name)?\s*[:\-])\s*([A-Za-z][A-Za-z .'-]{2,}?)(?=[.,;]?\s+(?:ref|txn|on|at|account|amount)\b|[.,]|$)/i)?.[1]?.trim()
+      || rawText.match(/(?:by|from|payer(?:\s+name)?\s*[:\-])\s*([A-Za-z][A-Za-z .'-]{2,})/i)?.[1]?.trim();
+
+    // 4. Extract receiver
+    let receiverName = rawText.match(/Receiver\s*:?\s*(.*?)\s+Account/i)?.[1]?.trim()
+      || rawText.match(/(?:to|receiver(?:\s+name)?\s*[:\-])\s*([A-Za-z][A-Za-z .'-]{2,}?)(?=[.,;]?\s+(?:ref|txn|on|at|account|amount)\b|[.,]|$)/i)?.[1]?.trim()
+      || rawText.match(/(?:to|receiver(?:\s+name)?\s*[:\-])\s*([A-Za-z][A-Za-z .'-]{2,})/i)?.[1]?.trim();
+
+    // 5. Extract accounts
+    const accountMatches = [...rawText.matchAll(/Account\s*:?\s*([A-Z0-9]?\*{3,4}\d{3,4}|\d{13,16})/gi)];
+    const payerAccount = accountMatches?.[0]?.[1] || undefined;
+    const receiverAccount = accountMatches?.[1]?.[1] || undefined;
+
+    // 6. Extract date
+    const dateRaw = rawText.match(/(?:payment\s+date\s*&?\s*time|date\s*&?\s*time|date)\s*:?\s*([\d\/:, ]+[APM]{2}|\d{2}[-/.]\d{2}[-/.]\d{4})/i)?.[1]?.trim();
+    const date = dateRaw ? new Date(dateRaw) : new Date();
+
+    const reason = rawText.match(/Reason\s*\/\s*Type of service\s*:?\s*(.*?)\s+(?:Transferred\s+Amount|amount)/i)?.[1]?.trim();
 
     payerName = payerName ? titleCase(payerName) : undefined;
     receiverName = receiverName ? titleCase(receiverName) : undefined;
 
-    if (payerName && payerAccount && receiverName && receiverAccount && amount && date && referenceMatch) {
+    if (amount !== undefined && (referenceMatch || payerName)) {
         return {
             success: true,
-            payer: payerName,
+            payer: payerName || 'Customer',
             payerAccount,
-            receiver: receiverName,
+            receiver: receiverName || 'Merchant',
             receiverAccount,
             amount,
             date,
-            reference: referenceMatch,
-            reason: reason || null
+            reference: referenceMatch || 'CBE_RECEIPT',
+            reason: reason || null,
+            verificationMode: 'LOCAL_TEXT',
+            receiptTextVerified: true,
         };
     }
 
     return {
         success: false,
-        error: 'Could not extract all required fields from receipt text.'
+        error: 'Could not extract reference or amount from CBE receipt text.'
     };
 }

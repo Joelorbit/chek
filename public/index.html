@@ -1,742 +1,317 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chek — Ethiopian Payment Verification Engine & Gateway Console</title>
+  <title>Chek — Ethiopian Payment Verification Engine & Developer API</title>
+  
+  <!-- Fonts: Outfit (Editorial Headings) + Plus Jakarta Sans (Body) + JetBrains Mono (Code) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Lexend:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+
   <script>
     tailwind.config = {
-      darkMode: 'class',
       theme: {
         extend: {
           colors: {
+            amber: {
+              50: '#fffbeb',
+              100: '#fef3c7',
+              500: '#f59e0b',
+              600: '#d97706',
+              700: '#b45309',
+            },
             brand: {
-              50: '#f4fbf7',
-              100: '#e6f7ef',
-              200: '#c5eedb',
-              300: '#93dec0',
-              400: '#5ac59f',
+              50: '#ecfdf5',
               500: '#10b981',
               600: '#059669',
               700: '#047857',
-              800: '#065f46',
-              900: '#064e3b',
-              950: '#022c22',
-            },
-            zinc: {
-              850: '#1e1e24',
-              900: '#18181b',
-              950: '#09090b',
             }
           },
           fontFamily: {
             heading: ['Outfit', 'sans-serif'],
-            body: ['Lexend', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace']
+            body: ['Plus Jakarta Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
           }
         }
       }
     }
   </script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <link rel="stylesheet" href="/styles.css">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #ffffff; color: #09090b; }
+    h1, h2, h3, h4, h5, h6, .font-heading { font-family: 'Outfit', sans-serif; }
+    code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
+  </style>
 </head>
-<body class="bg-zinc-950 text-zinc-100 font-body antialiased min-h-screen flex flex-col selection:bg-brand-500 selection:text-white">
+<body class="bg-white text-zinc-900 antialiased min-h-screen selection:bg-amber-500/20 selection:text-amber-900">
 
-  <!-- Header -->
-  <header class="sticky top-0 z-50 border-b border-zinc-800/80 bg-zinc-950/85 backdrop-blur-md">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+  <!-- Navigation Header -->
+  <header class="sticky top-0 z-50 border-b border-zinc-200 bg-white/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
       
       <!-- Brand Logo -->
-      <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-sm">
-          <svg class="w-5 h-5 text-brand-400" viewBox="0 0 640 640" fill="currentColor">
+      <div class="flex items-center gap-3.5">
+        <div class="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center font-bold text-amber-600 shadow-sm">
+          <!-- Custom SVG Icon Provided by User -->
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" class="w-5 h-5 fill-current text-amber-600">
             <path d="M142 66.2C150.5 62.3 160.5 63.7 167.6 69.8L208 104.4L248.4 69.8C257.4 62.1 270.7 62.1 279.6 69.8L320 104.4L360.4 69.8C369.4 62.1 382.6 62.1 391.6 69.8L432 104.4L472.4 69.8C479.5 63.7 489.5 62.3 498 66.2C506.5 70.1 512 78.6 512 88L512 552C512 561.4 506.5 569.9 498 573.8C489.5 577.7 479.5 576.3 472.4 570.2L432 535.6L391.6 570.2C382.6 577.9 369.4 577.9 360.4 570.2L320 535.6L279.6 570.2C270.6 577.9 257.3 577.9 248.4 570.2L208 535.6L167.6 570.2C160.5 576.3 150.5 577.7 142 573.8C133.5 569.9 128 561.4 128 552L128 88C128 78.6 133.5 70.1 142 66.2zM232 200C218.7 200 208 210.7 208 224C208 237.3 218.7 248 232 248L408 248C421.3 248 432 237.3 432 224C432 210.7 421.3 200 408 200L232 200zM208 416C208 429.3 218.7 440 232 440L408 440C421.3 440 432 429.3 432 416C432 402.7 421.3 392 408 392L232 392C218.7 392 208 402.7 208 416zM232 296C218.7 296 208 306.7 208 320C208 333.3 218.7 344 232 344L408 344C421.3 344 432 333.3 432 320C432 306.7 421.3 296 408 296L232 296z"/>
           </svg>
         </div>
         <div>
-          <div class="flex items-center gap-2">
-            <span class="font-heading font-bold text-lg tracking-tight text-white">Chek</span>
-            <span id="nav-release-tag" class="text-[11px] font-mono font-medium px-2 py-0.5 rounded-md bg-zinc-900 text-brand-400 border border-zinc-800">v3.0.3</span>
-          </div>
-          <p class="text-[11px] text-zinc-400 font-medium">Ethiopian Payment Engine</p>
+          <span class="text-xl font-bold font-heading tracking-tight text-zinc-900">Chek</span>
+          <span class="text-[10px] font-mono uppercase tracking-widest text-amber-600 block font-semibold">Payment Engine</span>
         </div>
       </div>
 
-      <!-- Navigation Tabs (Shadcn style) -->
-      <nav class="hidden md:flex items-center gap-1 bg-zinc-900/70 p-1 rounded-lg border border-zinc-800">
-        <button onclick="switchTab('studio')" id="tab-studio" class="nav-tab active px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 text-white bg-zinc-800 shadow-sm">
-          <i data-lucide="scan-line" class="w-3.5 h-3.5"></i> Studio
-        </button>
-        <button onclick="switchTab('ocr')" id="tab-ocr" class="nav-tab px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 text-zinc-400 hover:text-white">
-          <i data-lucide="image" class="w-3.5 h-3.5"></i> Vision OCR
-        </button>
-        <button onclick="switchTab('batch')" id="tab-batch" class="nav-tab px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 text-zinc-400 hover:text-white">
-          <i data-lucide="layers" class="w-3.5 h-3.5"></i> Batch
-        </button>
-        <button onclick="switchTab('checkout')" id="tab-checkout" class="nav-tab px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 text-zinc-400 hover:text-white">
-          <i data-lucide="shopping-bag" class="w-3.5 h-3.5"></i> Hosted Links
-        </button>
-        <button onclick="switchTab('webhooks')" id="tab-webhooks" class="nav-tab px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 text-zinc-400 hover:text-white">
-          <i data-lucide="webhook" class="w-3.5 h-3.5"></i> Webhooks
-        </button>
-        <button onclick="switchTab('release')" id="tab-release" class="nav-tab px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 text-zinc-400 hover:text-white">
-          <i data-lucide="download" class="w-3.5 h-3.5 text-brand-400"></i> App & Releases
-        </button>
-        <button onclick="switchTab('docs')" id="tab-docs" class="nav-tab px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 text-zinc-400 hover:text-white">
-          <i data-lucide="code-2" class="w-3.5 h-3.5"></i> API Docs
-        </button>
+      <!-- Navigation Links -->
+      <nav class="hidden md:flex items-center gap-8 text-xs font-semibold text-zinc-600">
+        <a href="#hero-tester" class="hover:text-amber-600 transition">Live Sandbox</a>
+        <a href="#comparison" class="hover:text-amber-600 transition">Comparison</a>
+        <a href="#integration" class="hover:text-amber-600 transition">API Docs</a>
       </nav>
 
-      <!-- System Status & API Key -->
-      <div class="flex items-center gap-2.5">
-        <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-medium">
-          <span class="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
-          <span>14 Banks Active</span>
-        </div>
-        <button onclick="openApiKeyModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white hover:border-zinc-700 transition-all shadow-sm">
-          <i data-lucide="key" class="w-3.5 h-3.5 text-brand-400"></i>
-          <span id="api-key-label">Set API Key</span>
-        </button>
+      <!-- Launch Console Button -->
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs transition shadow-sm flex items-center gap-2">
+          <span>Admin Console</span>
+          <i class="ph-bold ph-arrow-right"></i>
+        </a>
       </div>
     </div>
   </header>
 
-  <!-- Main Content Container -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-
-    <!-- ── TAB 1: VERIFICATION STUDIO ────────────────────────────────────── -->
-    <section id="view-studio" class="tab-view active space-y-6">
-      
-      <!-- Top Hero / Banner -->
-      <div class="rounded-xl p-6 sm:p-7 bg-zinc-900 border border-zinc-800 relative overflow-hidden shadow-sm">
-        <div class="relative z-10 max-w-3xl">
-          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-semibold uppercase tracking-wider mb-2.5">
-            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Universal Smart Router
-          </div>
-          <h1 class="font-heading font-bold text-2xl sm:text-3xl text-white tracking-tight leading-tight">
-            Universal Payment Verification Studio
-          </h1>
-          <p class="text-zinc-400 text-xs sm:text-sm mt-1.5 leading-relaxed">
-            Enter any transaction reference, mobile banking token, receipt URL, or paste raw receipt SMS. Chek auto-detects the bank and queries the settlement status instantly.
-          </p>
-        </div>
-
-        <!-- Supported Bank Badges -->
-        <div class="flex flex-wrap gap-1.5 mt-5 pt-5 border-t border-zinc-800/80">
-          <span class="bank-pill">CBE Mobile</span>
-          <span class="bank-pill">Telebirr</span>
-          <span class="bank-pill">Bank of Abyssinia</span>
-          <span class="bank-pill">Dashen Bank</span>
-          <span class="bank-pill">CBE Birr</span>
-          <span class="bank-pill">Safaricom M-Pesa</span>
-          <span class="bank-pill">Awash Bank</span>
-          <span class="bank-pill">Cooperative Bank</span>
-          <span class="bank-pill">Hibret Bank</span>
-          <span class="bank-pill">Zemen Bank</span>
-          <span class="bank-pill">Nib / Wegagen / Amhara</span>
-        </div>
+  <!-- Hero Section -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-24">
+    <div class="text-center max-w-3xl mx-auto mb-14">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-800 text-xs font-mono font-semibold mb-6">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+        <span>Dedicated Telebirr & CBE Verification Engine</span>
       </div>
+      <h1 class="text-4xl sm:text-6xl font-extrabold font-heading tracking-tight text-zinc-950 leading-[1.1]">
+        Verify Ethiopian Payments in <span class="text-amber-600">Under 2 Seconds</span>.
+      </h1>
+      <p class="text-base sm:text-lg text-zinc-600 mt-6 leading-relaxed">
+        Stop manually inspecting Telegram screenshots and SMS texts. Automatically verify Telebirr reference codes and CBE transaction tokens with instant Supabase logging and HMAC signed webhooks.
+      </p>
+    </div>
 
-      <!-- Main Two-Column Layout -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        <!-- Left Input Panel -->
-        <div class="lg:col-span-6 space-y-4">
-          <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-5 shadow-sm space-y-4">
-            
-            <!-- Mode Switch -->
-            <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
-              <div class="flex gap-1.5 bg-zinc-950 p-1 rounded-lg border border-zinc-800/60">
-                <button id="mode-ref-btn" onclick="setStudioMode('ref')" class="px-2.5 py-1 rounded text-xs font-medium bg-zinc-800 text-white transition-all">
-                  Reference / URL
-                </button>
-                <button id="mode-text-btn" onclick="setStudioMode('text')" class="px-2.5 py-1 rounded text-xs font-medium text-zinc-400 hover:text-white transition-all">
-                  Paste Receipt Text
-                </button>
-              </div>
-              <div id="detection-badge" class="flex items-center gap-1.5 text-xs font-mono font-medium px-2.5 py-1 rounded-md bg-zinc-950 text-zinc-400 border border-zinc-800">
-                <span class="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>
-                <span>Auto-Detecting...</span>
-              </div>
-            </div>
-
-            <!-- Reference / URL Input Mode -->
-            <div id="studio-ref-mode" class="space-y-3.5">
-              <div>
-                <label class="block text-xs font-medium text-zinc-300 mb-1">
-                  Transaction Reference, Token, or Receipt URL <span class="text-rose-400">*</span>
-                </label>
-                <div class="relative">
-                  <input
-                    type="text"
-                    id="input-reference"
-                    placeholder="e.g. AB12CD34EF, FT23062669JJ90172, or https://mbreciept.cbe.com.et/..."
-                    class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-xs font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all"
-                    oninput="handleReferenceInput(this.value)"
-                  />
-                  <button onclick="clearReferenceInput()" class="absolute right-2.5 top-2.5 text-zinc-500 hover:text-zinc-300">
-                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Dynamic Extra Fields (Suffix or Phone) -->
-              <div id="extra-fields-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3 hidden">
-                <div id="field-suffix" class="hidden">
-                  <label class="block text-xs font-medium text-zinc-300 mb-1">
-                    Account Suffix <span id="suffix-hint" class="text-zinc-500">(5 or 8 digits)</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="input-suffix"
-                    placeholder="e.g. 90172 or 12345678"
-                    class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500"
-                  />
-                </div>
-                <div id="field-phone" class="hidden">
-                  <label class="block text-xs font-medium text-zinc-300 mb-1">
-                    CBE Birr Phone Number <span class="text-zinc-500">(251...)</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="input-phone"
-                    placeholder="251911223344"
-                    class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <!-- Paste Receipt Text Mode -->
-            <div id="studio-text-mode" class="space-y-3.5 hidden">
-              <div>
-                <label class="block text-xs font-medium text-zinc-300 mb-1">
-                  Reference Code (Optional, auto-extracted if empty)
-                </label>
-                <input
-                  type="text"
-                  id="input-text-ref"
-                  placeholder="e.g. AW123456789 or leave empty"
-                  class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2 text-xs font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500 mb-2.5"
-                />
-                <label class="block text-xs font-medium text-zinc-300 mb-1">
-                  Raw Receipt Text / SMS Body <span class="text-rose-400">*</span>
-                </label>
-                <textarea
-                  id="input-receipt-text"
-                  rows="4"
-                  placeholder="Paste receipt SMS from Awash, Telebirr, CBE, Coop, Hibret, Zemen, etc..."
-                  class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500"
-                  oninput="handleReceiptTextInput(this.value)"
-                ></textarea>
-              </div>
-            </div>
-
-            <!-- Submit Button -->
-            <button
-              id="btn-verify"
-              onclick="executeStudioVerification()"
-              class="w-full py-2.5 px-4 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all"
-            >
-              <i data-lucide="check" class="w-4 h-4"></i>
-              <span>Verify Transaction</span>
-            </button>
-
-            <!-- Quick Presets -->
-            <div class="pt-3 border-t border-zinc-800">
-              <span class="text-[11px] font-medium text-zinc-400 block mb-2">Quick Presets:</span>
-              <div class="flex flex-wrap gap-1.5">
-                <button onclick="fillPreset('telebirr')" class="preset-btn">Telebirr (AB12CD34EF)</button>
-                <button onclick="fillPreset('abyssinia')" class="preset-btn">BoA Slip (FT23062669JJ 90172)</button>
-                <button onclick="fillPreset('dashen')" class="preset-btn">Dashen (3123456789012345)</button>
-                <button onclick="fillPreset('awash')" class="preset-btn">Awash Text Receipt</button>
-                <button onclick="fillPreset('cbe')" class="preset-btn">CBE Mobile URL</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right Output Panel -->
-        <div class="lg:col-span-6 space-y-4">
-          <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-5 shadow-sm min-h-[440px] flex flex-col">
-            
-            <div class="flex items-center justify-between pb-3 border-b border-zinc-800 mb-3">
-              <div class="flex items-center gap-2">
-                <i data-lucide="receipt" class="w-4 h-4 text-zinc-400"></i>
-                <h3 class="font-heading font-bold text-white text-xs">Verification Results</h3>
-              </div>
-              <div id="exec-timer" class="text-[11px] font-mono text-zinc-400">Ready</div>
-            </div>
-
-            <!-- Initial Idle State -->
-            <div id="result-idle" class="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-2">
-              <div class="w-12 h-12 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center text-zinc-400">
-                <i data-lucide="receipt" class="w-6 h-6"></i>
-              </div>
-              <h4 class="font-heading font-semibold text-zinc-200 text-sm">No Transaction Queried</h4>
-              <p class="text-xs text-zinc-400 max-w-sm">
-                Enter a reference or select a quick preset on the left, then click Verify Transaction to inspect details.
-              </p>
-            </div>
-
-            <!-- Loading Spinner -->
-            <div id="result-loading" class="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-3 hidden">
-              <div class="w-8 h-8 rounded-full border-2 border-zinc-700 border-t-brand-500 animate-spin"></div>
-              <div>
-                <h4 class="font-heading font-medium text-white text-sm">Querying Gateway...</h4>
-                <p class="text-xs text-zinc-400 mt-0.5">Inspecting reference patterns and gateway status</p>
-              </div>
-            </div>
-
-            <!-- Rendered Receipt Card -->
-            <div id="result-success" class="flex-1 flex flex-col space-y-3 hidden">
-              
-              <!-- Top Badge Header -->
-              <div class="rounded-lg p-3.5 bg-brand-500/10 border border-brand-500/20 flex items-center justify-between">
-                <div class="flex items-center gap-2.5">
-                  <div class="w-7 h-7 rounded bg-brand-500/20 flex items-center justify-center text-brand-400">
-                    <i data-lucide="check" class="w-4 h-4"></i>
-                  </div>
-                  <div>
-                    <span id="res-provider" class="text-[11px] font-bold font-mono uppercase text-brand-400">TELEBIRR</span>
-                    <h4 class="text-xs font-heading font-bold text-white">Transaction Verified</h4>
-                  </div>
-                </div>
-                <div class="text-right">
-                  <span class="text-[10px] text-zinc-400 block">Amount</span>
-                  <span id="res-amount" class="text-base font-heading font-bold text-brand-400">0.00 ETB</span>
-                </div>
-              </div>
-
-              <!-- Key Value Table -->
-              <div class="rounded-lg bg-zinc-950 border border-zinc-800 p-3.5 space-y-2 text-xs font-mono flex-1">
-                <div class="flex justify-between py-1 border-b border-zinc-800/60">
-                  <span class="text-zinc-400">Reference ID:</span>
-                  <span id="res-ref" class="text-white font-bold flex items-center gap-1.5">
-                    <span>---</span>
-                    <button onclick="copyRefToClipboard()" title="Copy Reference" class="text-zinc-400 hover:text-white">
-                      <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-                    </button>
-                  </span>
-                </div>
-                <div class="flex justify-between py-1 border-b border-zinc-800/60">
-                  <span class="text-zinc-400">Payer / Sender:</span>
-                  <span id="res-payer" class="text-zinc-200">---</span>
-                </div>
-                <div class="flex justify-between py-1 border-b border-zinc-800/60">
-                  <span class="text-zinc-400">Receiver / Credited:</span>
-                  <span id="res-receiver" class="text-zinc-200">---</span>
-                </div>
-                <div class="flex justify-between py-1 border-b border-zinc-800/60">
-                  <span class="text-zinc-400">Transaction Status:</span>
-                  <span id="res-status" class="px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-400 font-bold">COMPLETED</span>
-                </div>
-                <div class="flex justify-between py-1 border-b border-zinc-800/60">
-                  <span class="text-zinc-400">Timestamp:</span>
-                  <span id="res-date" class="text-zinc-300">---</span>
-                </div>
-                <div id="res-narrative-row" class="flex justify-between py-1 hidden">
-                  <span class="text-zinc-400">Narrative / Reason:</span>
-                  <span id="res-narrative" class="text-zinc-300 max-w-[200px] truncate">---</span>
-                </div>
-              </div>
-
-              <!-- Raw JSON Accordion -->
-              <details class="rounded-lg bg-zinc-950 border border-zinc-800 p-2.5 text-xs">
-                <summary class="cursor-pointer font-medium text-zinc-400 hover:text-white flex items-center justify-between">
-                  <span>View Raw JSON Response</span>
-                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
-                </summary>
-                <pre id="res-raw-json" class="mt-2.5 p-2.5 rounded bg-black font-mono text-[11px] text-brand-300 overflow-x-auto"></pre>
-              </details>
-            </div>
-
-            <!-- Error State -->
-            <div id="result-error" class="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-2 hidden">
-              <div class="w-10 h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
-                <i data-lucide="alert-circle" class="w-5 h-5"></i>
-              </div>
-              <h4 class="font-heading font-semibold text-rose-400 text-sm">Verification Failed</h4>
-              <p id="error-message" class="text-xs text-zinc-400 max-w-sm font-mono">
-                The reference could not be verified by the upstream gateway.
-              </p>
-            </div>
-
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- ── TAB 2: VISION OCR ─────────────────────────────────────────────── -->
-    <section id="view-ocr" class="tab-view space-y-6 hidden">
-      <div class="rounded-xl p-6 bg-zinc-900 border border-zinc-800 shadow-sm">
-        <div class="max-w-2xl">
-          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-semibold mb-2">
-            <i data-lucide="camera" class="w-3.5 h-3.5"></i> Multimodal Vision OCR
-          </div>
-          <h2 class="font-heading font-bold text-xl text-white">Receipt Screenshot OCR Verifier</h2>
-          <p class="text-zinc-400 text-xs mt-1">
-            Upload any screenshot or photo of an Ethiopian mobile banking receipt. The vision engine extracts the reference and parses the transaction automatically.
-          </p>
-        </div>
-
-        <!-- Dropzone Area -->
-        <div
-          id="ocr-dropzone"
-          onclick="document.getElementById('ocr-file-input').click()"
-          class="mt-5 border border-dashed border-zinc-700 hover:border-brand-500/60 rounded-xl p-10 text-center bg-zinc-950 cursor-pointer transition-all flex flex-col items-center justify-center space-y-2.5"
-        >
-          <input type="file" id="ocr-file-input" accept="image/*" class="hidden" onchange="handleOcrFileSelected(this.files)" />
-          <div class="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300">
-            <i data-lucide="upload" class="w-5 h-5"></i>
-          </div>
-          <h4 class="font-heading font-medium text-white text-xs">Drop receipt screenshot here, or <span class="text-brand-400 underline">browse</span></h4>
-          <p class="text-[11px] text-zinc-500">Supports PNG, JPG, WEBP screenshots from Telebirr, CBE Mobile, Awash, etc.</p>
-        </div>
-
-        <div id="ocr-preview-container" class="mt-5 hidden grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div class="rounded-lg border border-zinc-800 p-3 bg-zinc-950 flex items-center justify-center">
-            <img id="ocr-preview-img" src="" alt="Receipt Preview" class="max-h-72 rounded object-contain shadow-sm" />
-          </div>
-          <div class="space-y-3 flex flex-col justify-center">
-            <h4 class="font-heading font-bold text-white text-sm">Extraction Ready</h4>
-            <p class="text-xs text-zinc-400">Send the receipt screenshot to the multimodal vision engine.</p>
-            <button onclick="runOcrVerify()" id="btn-run-ocr" class="py-2.5 px-4 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs flex items-center justify-center gap-1.5 shadow-sm">
-              <i data-lucide="scan" class="w-4 h-4"></i> Run Multimodal Vision OCR
-            </button>
-            <div id="ocr-status" class="text-xs font-mono text-zinc-400"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── TAB 3: BATCH VERIFY ───────────────────────────────────────────── -->
-    <section id="view-batch" class="tab-view space-y-6 hidden">
-      <div class="rounded-xl p-6 bg-zinc-900 border border-zinc-800 shadow-sm space-y-5">
+    <!-- Live Interactive Tester Sandbox -->
+    <div id="hero-tester" class="max-w-4xl mx-auto bg-white border border-zinc-200 rounded-3xl p-6 sm:p-8 shadow-xl shadow-zinc-200/50 relative overflow-hidden mb-24">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-6 border-b border-zinc-100 gap-4 mb-6">
         <div>
-          <h2 class="font-heading font-bold text-xl text-white">Batch Transaction Verifier</h2>
-          <p class="text-zinc-400 text-xs mt-1">Verify up to 100 transaction references concurrently in a single operation.</p>
+          <h2 class="text-lg font-bold font-heading text-zinc-900 flex items-center gap-2">
+            <i class="ph-bold ph-lightning text-amber-500"></i>
+            <span>Interactive Verification Sandbox</span>
+          </h2>
+          <p class="text-xs text-zinc-500">Test real Ethiopian transaction references with live fallback.</p>
         </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          <div class="lg:col-span-5 space-y-3">
-            <label class="block text-xs font-medium text-zinc-300">
-              Enter References (One per line, optional suffix separated by space):
-            </label>
-            <textarea
-              id="batch-input"
-              rows="7"
-              placeholder="AB12CD34EF&#10;FT23062669JJ 90172&#10;3123456789012345&#10;1234567890abcdef1234"
-              class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500"
-            ></textarea>
-            <button onclick="runBatchVerification()" class="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow-sm flex items-center justify-center gap-1.5">
-              <i data-lucide="play" class="w-3.5 h-3.5"></i> Run Concurrent Batch
-            </button>
-          </div>
-
-          <div class="lg:col-span-7 space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-medium text-zinc-300">Execution Results</span>
-              <div id="batch-stats" class="text-xs font-mono text-zinc-400">0 Items</div>
-            </div>
-            <div id="batch-results-table" class="bg-zinc-950 rounded-lg border border-zinc-800 p-3 min-h-[200px] max-h-80 overflow-y-auto space-y-2 text-xs font-mono">
-              <div class="text-center text-zinc-500 py-8">No batch runs executed yet.</div>
-            </div>
-          </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-mono text-zinc-500">Try sample:</span>
+          <button onclick="setSample('DHS78S7FQN')" class="px-2.5 py-1 bg-zinc-50 hover:bg-zinc-100 text-amber-700 font-mono text-xs rounded-lg transition border border-zinc-200 font-semibold">Telebirr (DHS78S7FQN)</button>
         </div>
       </div>
-    </section>
 
-    <!-- ── TAB 4: CHECKOUT & PAYMENT LINKS ───────────────────────────────── -->
-    <section id="view-checkout" class="tab-view space-y-6 hidden">
-      <div class="rounded-xl p-6 bg-zinc-900 border border-zinc-800 shadow-sm space-y-5">
+      <div class="space-y-4">
         <div>
-          <h2 class="font-heading font-bold text-xl text-white">Hosted Payment Links & Checkout Simulator</h2>
-          <p class="text-zinc-400 text-xs mt-1">Preview how buyers interact with Chek payment links and confirm transfers.</p>
+          <label class="block text-xs font-semibold text-zinc-700 mb-1.5">Enter Reference ID or Raw SMS Message</label>
+          <textarea id="liveRefInput" rows="2" placeholder="e.g. DHS78S7FQN or paste full customer SMS text..." class="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 text-sm text-zinc-900 outline-none focus:border-amber-500 transition font-mono focus:bg-white"></textarea>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-3xl">
-          <!-- Create Link Form -->
-          <div class="p-4 rounded-lg bg-zinc-950 border border-zinc-800 space-y-3">
-            <h4 class="font-heading font-bold text-white text-xs">Create Payment Link Preview</h4>
-            <div>
-              <label class="block text-[11px] text-zinc-400 mb-1">Product / Invoice Title</label>
-              <input id="pl-title" type="text" value="Pro Plan Subscription" class="w-full bg-zinc-900 border border-zinc-800 rounded p-2 text-xs font-mono text-white" />
-            </div>
-            <div>
-              <label class="block text-[11px] text-zinc-400 mb-1">Amount (ETB)</label>
-              <input id="pl-amount" type="number" value="750" class="w-full bg-zinc-900 border border-zinc-800 rounded p-2 text-xs font-mono text-white" />
-            </div>
-            <button onclick="previewPaymentLink()" class="w-full py-2 rounded bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs">
-              Update Preview
-            </button>
-          </div>
-
-          <!-- Checkout Widget Preview -->
-          <div class="p-5 rounded-xl bg-zinc-950 border border-zinc-800 shadow-md space-y-3.5 text-center">
-            <div class="w-9 h-9 mx-auto rounded-lg bg-zinc-900 border border-zinc-800 text-brand-400 flex items-center justify-center">
-              <i data-lucide="receipt" class="w-4 h-4"></i>
-            </div>
-            <div>
-              <h3 id="prev-title" class="font-heading font-bold text-white text-sm">Pro Plan Subscription</h3>
-              <p class="text-[11px] text-zinc-400 mt-0.5">Pay via Telebirr, CBE, or Bank of Abyssinia</p>
-            </div>
-            <div class="text-xl font-heading font-bold text-brand-400" id="prev-amount">750.00 ETB</div>
-            
-            <div class="text-left bg-zinc-900 p-3 rounded-lg border border-zinc-800 text-xs space-y-1.5">
-              <span class="text-zinc-400 block font-medium">1. Transfer payment to:</span>
-              <div class="flex justify-between font-mono text-[11px]"><span class="text-zinc-500">Telebirr:</span> <span class="text-white font-bold">251911223344</span></div>
-              <div class="flex justify-between font-mono text-[11px]"><span class="text-zinc-500">CBE:</span> <span class="text-white font-bold">1000123456789</span></div>
-            </div>
-
-            <div class="space-y-2 text-left">
-              <label class="block text-[11px] text-zinc-400">2. Enter Transaction Reference:</label>
-              <input type="text" placeholder="e.g. AB12CD34EF" class="w-full bg-zinc-900 border border-zinc-800 rounded p-2 text-xs font-mono text-white" />
-              <button class="w-full py-2 rounded bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow-sm mt-1.5">
-                Confirm Payment
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── TAB 5: WEBHOOKS & SIGNATURES ──────────────────────────────────── -->
-    <section id="view-webhooks" class="tab-view space-y-6 hidden">
-      <div class="rounded-xl p-6 bg-zinc-900 border border-zinc-800 shadow-sm space-y-5">
-        <div>
-          <h2 class="font-heading font-bold text-xl text-white">Webhook Signature Tool & Relay Tester</h2>
-          <p class="text-zinc-400 text-xs mt-1">
-            Test and verify cryptographic HMAC SHA-256 signatures for <code class="text-brand-400 font-mono">X-Chek-Signature</code>.
-          </p>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div class="space-y-3">
-            <div>
-              <label class="block text-xs font-medium text-zinc-300 mb-1">Webhook Secret Key</label>
-              <input id="wh-secret" type="text" value="whsec_demo_secret_key_12345" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs font-mono text-white" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-zinc-300 mb-1">Sample Event Payload (JSON)</label>
-              <textarea id="wh-payload" rows="6" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs font-mono text-zinc-300">{
-  "event": "verification.success",
-  "reference": "AB12CD34EF",
-  "provider": "TELEBIRR",
-  "amount": 500.00,
-  "payer": "Abebe Kebede",
-  "timestamp": "2026-08-28T02:00:00.000Z"
-}</textarea>
-            </div>
-            <button onclick="computeHmacSignature()" class="py-2 px-3.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs flex items-center gap-1.5">
-              <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Generate Signature
-            </button>
-          </div>
-
-          <div class="space-y-3">
-            <label class="block text-xs font-medium text-zinc-300">Generated X-Chek-Signature</label>
-            <div id="wh-signature-out" class="p-3.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-brand-400 break-all min-h-[80px] flex items-center justify-center text-center">
-              Click Generate Signature to compute HMAC SHA-256
-            </div>
-
-            <div class="p-3.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs space-y-1.5">
-              <span class="text-zinc-400 font-medium block">TypeScript Signature Verification Code:</span>
-              <pre class="font-mono text-[11px] text-zinc-300 overflow-x-auto">import crypto from 'crypto';
-
-function verifyChekSignature(payload: string, header: string, secret: string) {
-  const hmac = crypto.createHmac('sha256', secret);
-  const digest = 'sha256=' + hmac.update(payload).digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(header), Buffer.from(digest));
-}</pre>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── TAB 6: DYNAMIC RELEASES & MOBILE CLIENT (AUTO-SYNCING) ───────── -->
-    <section id="view-release" class="tab-view space-y-6 hidden">
-      <div class="rounded-xl p-6 bg-zinc-900 border border-zinc-800 shadow-sm space-y-5">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-zinc-800">
-          <div>
-            <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-semibold mb-1">
-              <i data-lucide="refresh-cw" id="sync-icon" class="w-3.5 h-3.5 animate-spin"></i> Live GitHub Sync
-            </div>
-            <h2 class="font-heading font-bold text-xl text-white">Latest Releases & Android Client</h2>
-            <p class="text-zinc-400 text-xs mt-0.5">Always synchronized in real-time with your GitHub repository releases.</p>
-          </div>
-
-          <button onclick="fetchLatestRelease(true)" class="self-start sm:self-auto px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-all">
-            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh Sync
+        <div class="flex items-center gap-3">
+          <button onclick="runLiveHeroVerify()" id="btnHeroVerify" class="bg-amber-500 hover:bg-amber-400 text-zinc-950 px-6 py-3 rounded-xl font-bold text-xs transition shadow-sm flex items-center gap-2">
+            <i class="ph-bold ph-lightning"></i>
+            <span>Verify Live</span>
           </button>
+          <span id="heroDuration" class="text-xs font-mono text-zinc-500"></span>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
-          <!-- Release Details & Direct Download -->
-          <div class="lg:col-span-7 space-y-4">
-            <div class="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-medium text-zinc-400">Release Version:</span>
-                <span id="rel-tag" class="px-2.5 py-1 rounded bg-brand-500/10 border border-brand-500/20 text-brand-400 font-mono font-bold text-xs">v3.0.3</span>
-              </div>
-              <div class="flex justify-between text-xs">
-                <span class="text-zinc-400">Release Title:</span>
-                <span id="rel-name" class="text-white font-medium">Chek Universal Engine</span>
-              </div>
-              <div class="flex justify-between text-xs">
-                <span class="text-zinc-400">Published:</span>
-                <span id="rel-date" class="text-zinc-300 font-mono">Aug 28, 2026</span>
-              </div>
-              <div class="flex justify-between text-xs">
-                <span class="text-zinc-400">Repository:</span>
-                <a href="https://github.com/Joelorbit/chek" target="_blank" class="text-brand-400 hover:underline flex items-center gap-1">
-                  <span>Joelorbit/chek</span>
-                  <i data-lucide="external-link" class="w-3 h-3"></i>
-                </a>
-              </div>
-            </div>
-
-            <!-- Direct Download Buttons -->
-            <div class="space-y-2">
-              <a
-                id="btn-download-apk"
-                href="https://github.com/Joelorbit/chek/releases/latest"
-                target="_blank"
-                class="w-full py-3 px-4 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow-sm flex items-center justify-center gap-2 transition-all"
-              >
-                <i data-lucide="download" class="w-4 h-4"></i>
-                <span id="download-btn-label">Download Latest Release APK</span>
-              </a>
-
-              <a
-                id="btn-view-release"
-                href="https://github.com/Joelorbit/chek/releases"
-                target="_blank"
-                class="w-full py-2.5 px-4 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium text-xs flex items-center justify-center gap-1.5 transition-all"
-              >
-                <i data-lucide="git-branch" class="w-3.5 h-3.5"></i>
-                <span>View All Release Assets on GitHub</span>
-              </a>
-            </div>
-
-            <!-- Release Notes Snippet -->
-            <div class="p-3.5 rounded-lg bg-zinc-950 border border-zinc-800 space-y-1.5">
-              <span class="text-xs font-medium text-zinc-400 block">Changelog & Highlights:</span>
-              <div id="rel-notes" class="text-xs text-zinc-300 font-mono max-h-32 overflow-y-auto whitespace-pre-wrap leading-relaxed">Loading release notes...</div>
-            </div>
+        <!-- Output JSON Result Box -->
+        <div id="heroResultBox" class="hidden mt-6 pt-6 border-t border-zinc-100">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Verification JSON Payload</span>
+            <span id="heroStatusBadge" class="text-xs font-mono px-2 py-0.5 rounded-full font-bold"></span>
           </div>
+          <pre id="heroJsonOutput" class="bg-zinc-50 border border-zinc-200 p-4 rounded-xl text-xs font-mono text-zinc-800 overflow-x-auto"></pre>
+        </div>
+      </div>
+    </div>
 
-          <!-- Dynamic QR Code Card -->
-          <div class="lg:col-span-5 flex flex-col items-center justify-center p-6 rounded-xl bg-zinc-950 border border-zinc-800 text-center space-y-3.5">
-            <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 text-brand-400 flex items-center justify-center">
-              <i data-lucide="qr-code" class="w-4 h-4"></i>
-            </div>
-            <div>
-              <h4 class="font-heading font-bold text-white text-sm">Scan to Download on Phone</h4>
-              <p class="text-[11px] text-zinc-400 mt-0.5">Scan this QR code with your mobile camera to download immediately.</p>
-            </div>
+    <!-- Comparison Table -->
+    <section id="comparison" class="mb-24">
+      <div class="text-center max-w-2xl mx-auto mb-12">
+        <h2 class="text-3xl font-bold font-heading text-zinc-950">Built For Production Grade Apps</h2>
+        <p class="text-xs text-zinc-500 mt-2">See how Chek compares to traditional verification methods.</p>
+      </div>
 
-            <!-- Dynamic QR Code Image -->
-            <div class="p-3 rounded-xl bg-white shadow-md border border-zinc-700">
-              <img
-                id="rel-qrcode-img"
-                src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https%3A%2F%2Fgithub.com%2FJoelorbit%2Fchek%2Freleases%2Flatest"
-                alt="Latest Release QR Code"
-                class="w-40 h-40 object-contain"
-              />
-            </div>
-
-            <span id="qr-target-url" class="text-[10px] font-mono text-zinc-500 break-all max-w-xs">
-              https://github.com/Joelorbit/chek/releases/latest
-            </span>
-          </div>
-
+      <div class="bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-zinc-700">
+            <thead class="bg-zinc-50 border-b border-zinc-200 text-xs text-zinc-500 uppercase font-mono">
+              <tr>
+                <th class="p-5">Feature</th>
+                <th class="p-5 text-amber-600 font-bold">🧾 Chek Engine</th>
+                <th class="p-5 text-zinc-400">Manual SMS / Screenshots</th>
+                <th class="p-5 text-zinc-400">verify.et / veritas.et</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-100 font-sans text-xs">
+              <tr class="hover:bg-zinc-50/80">
+                <td class="p-5 font-semibold text-zinc-900">Live Telebirr Scraping</td>
+                <td class="p-5 text-emerald-600 font-bold">✅ Yes (~2 seconds)</td>
+                <td class="p-5 text-zinc-400">❌ Manual Human Inspection</td>
+                <td class="p-5 text-zinc-600">⚠️ Rate Limited / Cloud Hosted</td>
+              </tr>
+              <tr class="hover:bg-zinc-50/80">
+                <td class="p-5 font-semibold text-zinc-900">Direct CBE Mobile Token API</td>
+                <td class="p-5 text-emerald-600 font-bold">✅ Yes (&lt;1 second)</td>
+                <td class="p-5 text-zinc-400">❌ Slow Manual Validation</td>
+                <td class="p-5 text-zinc-600">✅ Supported</td>
+              </tr>
+              <tr class="hover:bg-zinc-50/80">
+                <td class="p-5 font-semibold text-zinc-900">Local SMS Text Fallback</td>
+                <td class="p-5 text-emerald-600 font-bold">✅ Instant 0ms Parser</td>
+                <td class="p-5 text-zinc-400">❌ Error Prone</td>
+                <td class="p-5 text-zinc-400">❌ API Network Only</td>
+              </tr>
+              <tr class="hover:bg-zinc-50/80">
+                <td class="p-5 font-semibold text-zinc-900">Database & ORM</td>
+                <td class="p-5 text-emerald-600 font-bold">✅ Supabase + Drizzle ORM</td>
+                <td class="p-5 text-zinc-400">❌ None</td>
+                <td class="p-5 text-zinc-600">⚠️ Heavy Prisma ORM</td>
+              </tr>
+              <tr class="hover:bg-zinc-50/80">
+                <td class="p-5 font-semibold text-zinc-900">Redis Dependency</td>
+                <td class="p-5 text-emerald-600 font-bold">✅ Zero (Pure In-Memory Queue)</td>
+                <td class="p-5 text-zinc-400">❌ None</td>
+                <td class="p-5 text-zinc-400">❌ Requires Redis Instance</td>
+              </tr>
+              <tr class="hover:bg-zinc-50/80">
+                <td class="p-5 font-semibold text-zinc-900">Webhook Dispatcher</td>
+                <td class="p-5 text-emerald-600 font-bold">✅ Signed HMAC SHA-256</td>
+                <td class="p-5 text-zinc-400">❌ None</td>
+                <td class="p-5 text-zinc-600">✅ Supported</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
 
-    <!-- ── TAB 7: API SPECS & CODE GENERATOR ────────────────────────────── -->
-    <section id="view-docs" class="tab-view space-y-6 hidden">
-      <div class="rounded-xl p-6 bg-zinc-900 border border-zinc-800 shadow-sm space-y-5">
-        <div>
-          <h2 class="font-heading font-bold text-xl text-white">Interactive API & SDK Generator</h2>
-          <p class="text-zinc-400 text-xs mt-1">Copy ready-to-use verification snippets in your favorite language.</p>
+    <!-- Developer Integration Section -->
+    <section id="integration" class="mb-24">
+      <div class="text-center max-w-2xl mx-auto mb-12">
+        <h2 class="text-3xl font-bold font-heading text-zinc-950">1-Line API Integration</h2>
+        <p class="text-xs text-zinc-500 mt-2">Connect your Telegram bots, web apps, or ecommerce checkout.</p>
+      </div>
+
+      <div class="bg-white border border-zinc-200 rounded-3xl p-6 sm:p-8 shadow-sm">
+        <div class="flex items-center gap-2 border-b border-zinc-100 pb-4 mb-6">
+          <button onclick="showCodeTab('curl')" id="tab-code-curl" class="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-amber-500 text-zinc-950">cURL</button>
+          <button onclick="showCodeTab('node')" id="tab-code-node" class="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-zinc-600 hover:text-zinc-900">Node.js</button>
+          <button onclick="showCodeTab('python')" id="tab-code-python" class="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-zinc-600 hover:text-zinc-900">Python</button>
         </div>
 
-        <div class="space-y-3">
-          <div class="flex gap-1.5 border-b border-zinc-800 pb-2">
-            <button onclick="setDocLang('ts')" id="lang-ts" class="px-2.5 py-1 rounded text-xs font-medium bg-zinc-800 text-white">TypeScript / Node.js</button>
-            <button onclick="setDocLang('py')" id="lang-py" class="px-2.5 py-1 rounded text-xs font-medium text-zinc-400 hover:text-white">Python</button>
-            <button onclick="setDocLang('curl')" id="lang-curl" class="px-2.5 py-1 rounded text-xs font-medium text-zinc-400 hover:text-white">cURL</button>
-          </div>
+        <pre id="code-curl" class="text-xs font-mono text-zinc-800 bg-zinc-50 p-4 rounded-xl border border-zinc-200 overflow-x-auto leading-relaxed"><code>curl -X POST http://localhost:3001/verify \
+  -H "x-api-key: sk_live_YOUR_KEY_HERE" \
+  -H "content-type: application/json" \
+  -d '{"reference": "DHS78S7FQN"}'</code></pre>
 
-          <pre id="doc-code-block" class="p-3.5 rounded-lg bg-black border border-zinc-800 font-mono text-xs text-brand-300 overflow-x-auto leading-relaxed"></pre>
-        </div>
+        <pre id="code-node" class="hidden text-xs font-mono text-zinc-800 bg-zinc-50 p-4 rounded-xl border border-zinc-200 overflow-x-auto leading-relaxed"><code>import axios from 'axios';
+
+const response = await axios.post('http://localhost:3001/verify', {
+  reference: 'DHS78S7FQN'
+}, {
+  headers: { 'x-api-key': process.env.CHEK_API_KEY }
+});
+
+if (response.data.success) {
+  console.log('Payment Confirmed:', response.data.data.payerName, response.data.data.settledAmount);
+}</code></pre>
+
+        <pre id="code-python" class="hidden text-xs font-mono text-zinc-800 bg-zinc-50 p-4 rounded-xl border border-zinc-200 overflow-x-auto leading-relaxed"><code>import requests
+
+res = requests.post(
+    'http://localhost:3001/verify',
+    headers={'x-api-key': 'sk_live_YOUR_KEY_HERE'},
+    json={'reference': 'DHS78S7FQN'}
+)
+
+data = res.json()
+if data.get('success'):
+    print(f"Payer: {data['data']['payerName']}, Amount: {data['data']['settledAmount']}")</code></pre>
       </div>
     </section>
 
   </main>
 
-  <!-- API Key Modal -->
-  <div id="modal-apikey" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full p-5 shadow-2xl space-y-3.5">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <i data-lucide="key" class="w-4 h-4 text-brand-400"></i>
-          <h3 class="font-heading font-bold text-white text-sm">Configure API Key</h3>
-        </div>
-        <button onclick="closeApiKeyModal()" class="text-zinc-500 hover:text-white">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
-      <p class="text-xs text-zinc-400">
-        Enter your Chek API key (`chk_live_...`). It will be stored in your browser's local storage and used for subsequent verification calls.
-      </p>
-      <div>
-        <label class="block text-xs font-medium text-zinc-300 mb-1">API Key</label>
-        <input
-          type="password"
-          id="modal-key-input"
-          placeholder="chk_live_..."
-          class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs font-mono text-white placeholder-zinc-600 focus:outline-none focus:border-brand-500"
-        />
-      </div>
-      <div class="flex justify-end gap-2 pt-1">
-        <button onclick="closeApiKeyModal()" class="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white">Cancel</button>
-        <button onclick="saveApiKey()" class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow-sm">Save Key</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Footer -->
-  <footer class="border-t border-zinc-800/80 bg-zinc-950 py-5 mt-10">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-      <div class="flex items-center gap-2 text-xs text-zinc-400">
-        <svg class="w-4 h-4 text-brand-400" viewBox="0 0 640 640" fill="currentColor">
-          <path d="M142 66.2C150.5 62.3 160.5 63.7 167.6 69.8L208 104.4L248.4 69.8C257.4 62.1 270.7 62.1 279.6 69.8L320 104.4L360.4 69.8C369.4 62.1 382.6 62.1 391.6 69.8L432 104.4L472.4 69.8C479.5 63.7 489.5 62.3 498 66.2C506.5 70.1 512 78.6 512 88L512 552C512 561.4 506.5 569.9 498 573.8C489.5 577.7 479.5 576.3 472.4 570.2L432 535.6L391.6 570.2C382.6 577.9 369.4 577.9 360.4 570.2L320 535.6L279.6 570.2C270.6 577.9 257.3 577.9 248.4 570.2L208 535.6L167.6 570.2C160.5 576.3 150.5 577.7 142 573.8C133.5 569.9 128 561.4 128 552L128 88C128 78.6 133.5 70.1 142 66.2zM232 200C218.7 200 208 210.7 208 224C208 237.3 218.7 248 232 248L408 248C421.3 248 432 237.3 432 224C432 210.7 421.3 200 408 200L232 200zM208 416C208 429.3 218.7 440 232 440L408 440C421.3 440 432 429.3 432 416C432 402.7 421.3 392 408 392L232 392C218.7 392 208 402.7 208 416zM232 296C218.7 296 208 306.7 208 320C208 333.3 218.7 344 232 344L408 344C421.3 344 432 333.3 432 320C432 306.7 421.3 296 408 296L232 296z"/>
-        </svg>
-        <span class="font-heading font-bold text-white">Chek</span>
-        <span>— Ethiopian Payment Verification Engine</span>
-      </div>
-      <div class="flex items-center gap-3 text-xs text-zinc-500 font-mono">
-        <a href="https://github.com/Joelorbit/chek" target="_blank" class="hover:text-zinc-300 flex items-center gap-1">
-          <i data-lucide="github" class="w-3.5 h-3.5"></i> GitHub
-        </a>
-        <span>•</span>
-        <a href="/DEV_DOCS.md" class="hover:text-zinc-300">DEV_DOCS.md</a>
-        <span>•</span>
-        <a href="/UNDER_THE_HOOD.md" class="hover:text-zinc-300">UNDER_THE_HOOD.md</a>
-      </div>
-    </div>
+  <footer class="border-t border-zinc-200 bg-zinc-50 py-8 text-center text-xs text-zinc-500 font-mono">
+    <p>Chek Payment Engine • Production Edition v3.1</p>
   </footer>
 
-  <script src="/app.js"></script>
+  <script>
+    function setSample(ref) {
+      document.getElementById('liveRefInput').value = ref;
+      runLiveHeroVerify();
+    }
+
+    async function runLiveHeroVerify() {
+      const input = document.getElementById('liveRefInput').value.trim();
+      if (!input) return alert('Enter a reference or paste SMS text');
+
+      const btn = document.getElementById('btnHeroVerify');
+      btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i><span>Verifying...</span>';
+      btn.disabled = true;
+
+      const startTime = performance.now();
+
+      try {
+        const res = await fetch('/admin/api/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': 'chek_admin_super_secret_key_902104'
+          },
+          body: JSON.stringify({ input })
+        });
+        const data = await res.json();
+        const duration = Math.round(performance.now() - startTime);
+
+        document.getElementById('heroDuration').innerText = '⏱️ ' + duration + 'ms';
+        document.getElementById('heroResultBox').classList.remove('hidden');
+        document.getElementById('heroJsonOutput').innerText = JSON.stringify(data, null, 2);
+
+        const badge = document.getElementById('heroStatusBadge');
+        if (data.success) {
+          badge.className = 'text-xs font-mono px-2.5 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
+          badge.innerText = 'VERIFIED';
+        } else {
+          badge.className = 'text-xs font-mono px-2.5 py-0.5 rounded-full font-bold bg-rose-50 text-rose-700 border border-rose-200';
+          badge.innerText = 'FAILED';
+        }
+      } catch (err) {
+        alert('Verification error: ' + err.message);
+      } finally {
+        btn.innerHTML = '<i class="ph-bold ph-lightning"></i><span>Verify Live</span>';
+        btn.disabled = false;
+      }
+    }
+
+    function showCodeTab(tab) {
+      ['curl', 'node', 'python'].forEach(t => {
+        document.getElementById('code-' + t).classList.add('hidden');
+        document.getElementById('tab-code-' + t).className = 'px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-zinc-600 hover:text-zinc-900';
+      });
+      document.getElementById('code-' + tab).classList.remove('hidden');
+      document.getElementById('tab-code-' + tab).className = 'px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-amber-500 text-zinc-950';
+    }
+  </script>
 </body>
 </html>

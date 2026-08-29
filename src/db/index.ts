@@ -1,41 +1,30 @@
-import { drizzle } from 'drizzle-orm/mysql2';
-import mysql from 'mysql2/promise';
+import 'dotenv/config';
+import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
 import * as schema from './schema';
-import logger from '../utils/logger';
-import dotenv from 'dotenv';
-dotenv.config();
 
-const connectionUri = process.env.DATABASE_URL || 'mysql://root:password@localhost:3306/chek_db';
+const rawUrl = process.env.DATABASE_URL;
+// If DATABASE_URL is missing or contains placeholder brackets like [PROJECT-REF], fallback to dummy local connection string for safe module loading / testing
+const connectionString =
+  !rawUrl || rawUrl.includes('[') || rawUrl.includes(']')
+    ? 'postgresql://postgres:postgres@127.0.0.1:5432/postgres'
+    : rawUrl;
 
-export const pool = mysql.createPool({
-  uri: connectionUri,
-  waitForConnections: true,
-  connectionLimit: 10,
-  maxIdle: 10,
-  idleTimeout: 60000,
-  queueLimit: 0,
-});
+// Supabase uses Transaction Pool mode → must disable prepared statements.
+const client = postgres(connectionString, { prepare: false });
 
-export const db = drizzle(pool, { schema, mode: 'default' });
+export const db = drizzle(client, { schema });
 
-export async function checkDatabaseConnection(): Promise<boolean> {
+export async function checkDatabaseConnection() {
   try {
-    const connection = await pool.getConnection();
-    await connection.ping();
-    connection.release();
-    logger.info('Connected to MySQL via Drizzle ORM successfully.');
+    await client`SELECT 1`;
     return true;
-  } catch (error) {
-    logger.warn('MySQL connection ping failed, continuing in fallback mode:', error);
+  } catch (err) {
+    console.error(`[DB] connection failed: ${(err as Error).message}`);
     return false;
   }
 }
 
-export async function closeDatabaseConnection(): Promise<void> {
-  try {
-    await pool.end();
-    logger.info('Closed MySQL pool connection.');
-  } catch (error) {
-    logger.error('Error closing MySQL pool:', error);
-  }
+export async function closeDatabaseConnection() {
+  await client.end({ timeout: 5 });
 }
