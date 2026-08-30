@@ -1,53 +1,76 @@
 import express, { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
+import cookieParser from 'cookie-parser';
 
-// Load environment variables from .env file
-dotenv.config();
-
-import CBERouter from './routes/verifyCBERoute';
-import telebirrRouter from './routes/verifyTelebirrRoute';
-import universalRouter from './routes/verifyUniversalRoute';
-import batchRouter from './routes/verifyBatch';
-import adminRouter from './routes/adminRoute';
-import docsRouter from './routes/docsRoute';
 import logger from './utils/logger';
 import { apiKeyAuth } from './middleware/apiKeyAuth';
-import { rateLimiter } from './middleware/rateLimiter';
+import { rateLimiter, enforceMerchantMonthlyQuota } from './middleware/rateLimiter';
+import universalRouter from './routes/verifyUniversalRoute';
+import batchRouter from './routes/verifyBatch';
+import CBERouter from './routes/verifyCBERoute';
+import telebirrRouter from './routes/verifyTelebirrRoute';
+import adminRouter from './routes/adminRoute';
+import { verifyImageHandler } from './services/verifyImage';
 import { checkDatabaseConnection } from './db';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const COOKIE_SECRET = process.env.COOKIE_SECRET || 'chek_cookie_secret_super_90210';
 
-// Middlewares
-app.use(cors());
+// Global Security Middleware
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+app.use(cors({
+  origin: true,
+  credentials: true,
+}));
+
+app.use(cookieParser(COOKIE_SECRET));
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Serve static assets if any
-app.use(express.static(path.join(__dirname, '../public')));
+// Static Assets
 app.use(express.static(path.join(process.cwd(), 'public')));
 
-// Developer Documentation Portal & Aliases
-app.use('/docs', docsRouter);
-app.get(['/api-docs', '/apidocs', '/doc'], (_req: Request, res: Response) => {
-  res.redirect('/docs');
+// Root landing page
+app.get('/', (_req: Request, res: Response) => {
+  const indexPath = path.join(process.cwd(), 'public', 'index.html');
+  res.sendFile(indexPath);
 });
 
-// Admin Dashboard & Admin REST API (bypasses customer API key auth)
+// Direct Super Admin alias
+app.get('/super-admin', (_req: Request, res: Response) => {
+  res.redirect('/admin/super-admin');
+});
+
+// Live Gateway Status Page
+app.get('/status', (_req: Request, res: Response) => {
+  const statusFile = path.join(process.cwd(), 'public', 'status.html');
+  res.sendFile(statusFile);
+});
+
+// Admin Dashboard & Admin REST API (manages its own auth)
 app.use('/admin', adminRouter);
 
-// Customer API Key Authentication
+// Customer Authentication & Quota Enforcement (20 checks/hr sandbox, 250 checks/mo free)
 app.use(apiKeyAuth as express.RequestHandler);
+app.use(enforceMerchantMonthlyQuota as express.RequestHandler);
+app.use(rateLimiter as express.RequestHandler);
 
-// Rate Limiter
-app.use('/verify', rateLimiter);
-app.use('/verify-batch', rateLimiter);
-app.use('/verify-cbe', rateLimiter);
-app.use('/verify-telebirr', rateLimiter);
+// Verification Route with Image OCR
+app.post('/verify-image', ...(verifyImageHandler as any));
 
-// Verification Routes (Telebirr & CBE)
+// Verification Routes (Telebirr, CBE & Universal)
 app.use('/verify', universalRouter);
 app.use('/verify-batch', batchRouter);
 app.use('/verify-cbe', CBERouter);

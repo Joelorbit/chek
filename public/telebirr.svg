@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <circle cx="100" cy="100" r="96" fill="#0071BC"/>
+  <!-- Telebirr Lime & Yellow swoop -->
+  <path d="M42 108C42 108 65 145 105 145C148 145 162 105 162 105C162 105 142 125 108 125C72 125 56 108 42 108Z" fill="#9CC656"/>
+  <path d="M45 92C45 92 72 52 118 52C160 52 168 85 168 85C168 85 148 68 116 68C80 68 60 92 45 92Z" fill="#FFDE00"/>
+  <circle cx="100" cy="98" r="18" fill="#FFFFFF"/>
+</svg>

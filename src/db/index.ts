@@ -10,8 +10,8 @@ const connectionString =
     ? 'postgresql://postgres:postgres@127.0.0.1:5432/postgres'
     : rawUrl;
 
-// Supabase uses Transaction Pool mode → must disable prepared statements.
-const client = postgres(connectionString, { prepare: false });
+// Supabase uses Transaction Pool mode → must disable prepared statements. Fast timeout for instant offline fallback.
+const client = postgres(connectionString, { prepare: false, connect_timeout: 1, max: 10 });
 
 export const db = drizzle(client, { schema });
 

@@ -12,7 +12,6 @@ RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
     && sudo rm -rf /var/lib/apt/lists/*
 
 COPY pnpm-lock.yaml package.json pnpm-workspace.yaml* ./
-COPY prisma ./prisma
 
 # ---- deps (install devDeps) ----
 FROM base AS deps
@@ -23,8 +22,8 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store/v3 \
 # ---- build ----
 FROM deps AS build
 COPY . .
-# Generate client & compile TS
-RUN pnpm prisma generate && pnpm build
+# Compile TypeScript with Drizzle ORM
+RUN pnpm build
 # Optionally prune to prod-only for runtime
 RUN pnpm prune --prod
 
@@ -43,8 +42,6 @@ RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/public ./public
 
-# If you run migrations at startup:
-# CMD ["sh", "-c", "pnpm prisma migrate deploy && node dist/index.js"]
 CMD ["node", "dist/index.js"]

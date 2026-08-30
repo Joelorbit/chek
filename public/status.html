@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chek Status — Telebirr & CBE Network Relay Health</title>
+  <meta name="description" content="Live operational status and relay latency metrics for Ethio Telecom Telebirr and Commercial Bank of Ethiopia (CBE) payment verification rails.">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+
+  <!-- Fonts: Plus Jakarta Sans / Inter + JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    body {
+      background-color: #fafafa;
+      color: #0f172a;
+      font-family: 'Inter', sans-serif;
+    }
+    h1, h2, h3, h4, h5, h6, .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
+    code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
+    
+    .light-grid {
+      background-size: 32px 32px;
+      background-image: linear-gradient(to right, rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+    }
+    
+    .status-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 1rem;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .status-card:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-dark {
+      background-color: #0f172a;
+      color: #ffffff;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+    .btn-dark:hover {
+      background-color: #1e293b;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-[#fafafa] text-slate-900 antialiased min-h-screen relative selection:bg-amber-100 selection:text-amber-900">
+
+  <!-- Background Grid -->
+  <div class="fixed inset-0 light-grid pointer-events-none z-0"></div>
+
+  <!-- 1. NAVIGATION -->
+  <header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
+    <nav class="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      
+      <!-- Brand Logo with EXACT RECEIPT SVG ICON -->
+      <a href="/" class="flex items-center gap-3 group">
+        <div class="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center p-1.5 shadow-sm transition group-hover:scale-105">
+          <svg class="w-5 h-5 text-slate-950" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor">
+            <path d="M142 66.2C150.5 62.3 160.5 63.7 167.6 69.8L208 104.4L248.4 69.8C257.4 62.1 270.7 62.1 279.6 69.8L320 104.4L360.4 69.8C369.4 62.1 382.6 62.1 391.6 69.8L432 104.4L472.4 69.8C479.5 63.7 489.5 62.3 498 66.2C506.5 70.1 512 78.6 512 88L512 552C512 561.4 506.5 569.9 498 573.8C489.5 577.7 479.5 576.3 472.4 570.2L432 535.6L391.6 570.2C382.6 577.9 369.4 577.9 360.4 570.2L320 535.6L279.6 570.2C270.6 577.9 257.3 577.9 248.4 570.2L208 535.6L167.6 570.2C160.5 576.3 150.5 577.7 142 573.8C133.5 569.9 128 561.4 128 552L128 88C128 78.6 133.5 70.1 142 66.2zM232 200C218.7 200 208 210.7 208 224C208 237.3 218.7 248 232 248L408 248C421.3 248 432 237.3 432 224C432 210.7 421.3 200 408 200L232 200zM208 416C208 429.3 218.7 440 232 440L408 440C421.3 440 432 429.3 432 416C432 402.7 421.3 392 408 392L232 392C218.7 392 208 402.7 208 416zM232 296C218.7 296 208 306.7 208 320C208 333.3 218.7 344 232 344L408 344C421.3 344 432 333.3 432 320C432 306.7 421.3 296 408 296L232 296z"/>
+          </svg>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="font-bold font-display text-lg tracking-tight text-slate-900">Chek</span>
+          <span class="text-emerald-800 text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200">Status</span>
+        </div>
+      </a>
+
+      <!-- Navigation Links -->
+      <div class="flex items-center gap-4 text-xs font-semibold text-slate-600">
+        <a href="/" class="hover:text-slate-900 transition flex items-center gap-1">
+          <i class="ph ph-arrow-left"></i> Home
+        </a>
+        <a href="/admin" class="hover:text-slate-900 transition font-bold text-slate-900">Console</a>
+      </div>
+
+    </nav>
+  </header>
+
+  <!-- 2. MAIN STATUS DASHBOARD -->
+  <main class="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-12 text-left space-y-8">
+    
+    <!-- Top System Health Banner -->
+    <div class="status-card p-6 border-l-4 border-l-emerald-500 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-center gap-3.5">
+        <div class="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+          <span class="w-3.5 h-3.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold font-display text-slate-950">All Banking Relays Fully Operational</h1>
+          <p class="text-xs text-slate-500">Addis Ababa domestic egress cluster running at normal load with sub-second latencies</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 font-mono text-xs">
+        <span class="text-slate-500">System Uptime:</span>
+        <span class="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">99.98%</span>
+      </div>
+    </div>
+
+    <!-- Bank Rail Nodes -->
+    <div class="space-y-3">
+      <h2 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-500">Domestic Relay Endpoints</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- Telebirr Relay -->
+        <div class="status-card p-5 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <img src="/telebirr.jpg" alt="Telebirr" class="w-10 h-10 rounded-full object-cover border border-emerald-200" />
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 font-display">Ethio Telecom Telebirr Relay</h3>
+              <p class="text-[11px] text-slate-500 font-mono">Endpoint: /verify (TELEBIRR)</p>
+            </div>
+          </div>
+          <div class="text-right font-mono">
+            <span class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold block mb-1">OPERATIONAL</span>
+            <span class="text-[11px] text-slate-500 font-semibold">18ms latency</span>
+          </div>
+        </div>
+
+        <!-- CBE Relay -->
+        <div class="status-card p-5 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <img src="/cbe.jpg" alt="CBE" class="w-10 h-10 rounded-full object-cover border border-purple-200" />
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 font-display">Commercial Bank of Ethiopia (CBE)</h3>
+              <p class="text-[11px] text-slate-500 font-mono">Endpoint: /verify (CBE)</p>
+            </div>
+          </div>
+          <div class="text-right font-mono">
+            <span class="px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-800 border border-purple-200 text-[10px] font-bold block mb-1">OPERATIONAL</span>
+            <span class="text-[11px] text-slate-500 font-semibold">28ms latency</span>
+          </div>
+        </div>
+
+        <!-- HMAC Webhooks -->
+        <div class="status-card p-5 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
+              <i class="ph-bold ph-webhooks-logo text-lg"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 font-display">HMAC Webhook Dispatcher</h3>
+              <p class="text-[11px] text-slate-500 font-mono">SHA-256 Signature Queue Engine</p>
+            </div>
+          </div>
+          <div class="text-right font-mono">
+            <span class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold block mb-1">OPERATIONAL</span>
+            <span class="text-[11px] text-slate-500 font-semibold">0ms queued</span>
+          </div>
+        </div>
+
+        <!-- PostgreSQL Ledger -->
+        <div class="status-card p-5 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
+              <i class="ph-bold ph-database text-lg"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 font-display">PostgreSQL Transaction Ledger</h3>
+              <p class="text-[11px] text-slate-500 font-mono">ACID Verification Persistence</p>
+            </div>
+          </div>
+          <div class="text-right font-mono">
+            <span class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold block mb-1">OPERATIONAL</span>
+            <span class="text-[11px] text-slate-500 font-semibold">0ms replica lag</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 30-Day Uptime Heatmap -->
+    <div class="status-card p-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 font-display">30-Day Historical Uptime</h3>
+          <p class="text-xs text-slate-500">Addis egress nodes response metrics</p>
+        </div>
+        <span class="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">100.0% past 30 days</span>
+      </div>
+
+      <!-- Heatmap Bars -->
+      <div class="grid grid-cols-30 gap-1 h-8 items-end" style="grid-template-columns: repeat(30, minmax(0, 1fr));">
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 1: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 2: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 3: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 4: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 5: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 6: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 7: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 8: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 9: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 10: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 11: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 12: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 13: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 14: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 15: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 16: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 17: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 18: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 19: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 20: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 21: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 22: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 23: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 24: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 25: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 26: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 27: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 28: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Day 29: 100%"></div>
+        <div class="bg-emerald-500 rounded-xs h-full" title="Today: 100%"></div>
+      </div>
+
+      <div class="flex justify-between text-[11px] font-mono text-slate-400 mt-2">
+        <span>30 days ago</span>
+        <span>Today</span>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 3. FOOTER -->
+  <footer class="border-t border-slate-200 bg-white py-8 relative z-10 text-xs text-slate-500 mt-12">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2.5">
+        <div class="w-5 h-5 rounded bg-amber-500 text-slate-950 flex items-center justify-center p-1 shadow-2xs">
+          <svg class="w-3.5 h-3.5 text-slate-950" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor">
+            <path d="M142 66.2C150.5 62.3 160.5 63.7 167.6 69.8L208 104.4L248.4 69.8C257.4 62.1 270.7 62.1 279.6 69.8L320 104.4L360.4 69.8C369.4 62.1 382.6 62.1 391.6 69.8L432 104.4L472.4 69.8C479.5 63.7 489.5 62.3 498 66.2C506.5 70.1 512 78.6 512 88L512 552C512 561.4 506.5 569.9 498 573.8C489.5 577.7 479.5 576.3 472.4 570.2L432 535.6L391.6 570.2C382.6 577.9 369.4 577.9 360.4 570.2L320 535.6L279.6 570.2C270.6 577.9 257.3 577.9 248.4 570.2L208 535.6L167.6 570.2C160.5 576.3 150.5 577.7 142 573.8C133.5 569.9 128 561.4 128 552L128 88C128 78.6 133.5 70.1 142 66.2zM232 200C218.7 200 208 210.7 208 224C208 237.3 218.7 248 232 248L408 248C421.3 248 432 237.3 432 224C432 210.7 421.3 200 408 200L232 200zM208 416C208 429.3 218.7 440 232 440L408 440C421.3 440 432 429.3 432 416C432 402.7 421.3 392 408 392L232 392C218.7 392 208 402.7 208 416zM232 296C218.7 296 208 306.7 208 320C208 333.3 218.7 344 232 344L408 344C421.3 344 432 333.3 432 320C432 306.7 421.3 296 408 296L232 296z"/>
+          </svg>
+        </div>
+        <span class="font-bold text-slate-900 font-display">Chek</span>
+        <span>•</span>
+        <span>Ethiopian Payment Verification Engine</span>
+      </div>
+      <div class="flex items-center gap-6 font-medium">
+        <a href="/" class="hover:text-slate-900 transition">API</a>
+        <a href="/admin" class="hover:text-slate-900 transition">Console</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

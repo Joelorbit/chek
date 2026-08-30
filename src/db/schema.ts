@@ -22,7 +22,8 @@ export const merchants = pgTable('merchants', {
   name: varchar('name', { length: 255 }).default('Merchant').notNull(),
   businessName: varchar('business_name', { length: 255 }).default('My Business').notNull(),
   role: varchar('role', { length: 50 }).default('merchant').notNull(), // 'admin' | 'merchant'
-  plan: varchar('plan', { length: 50 }).default('pro').notNull(),      // 'starter' | 'pro' | 'enterprise'
+  plan: varchar('plan', { length: 50 }).default('free').notNull(),     // 'free' | 'shop' | 'developer' | 'scale' | 'enterprise'
+  planExpiresAt: timestamp('plan_expires_at'),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => ({
@@ -69,7 +70,27 @@ export const verifiedTransactions = pgTable('verified_transactions', {
   merchantIdx: index('verified_tx_merchant_idx').on(t.merchantId),
 }));
 
-// ─── 4. WEBHOOKS ─────────────────────────────────────────────────────────────
+// ─── 4. SUBSCRIPTION PAYMENTS ─────────────────────────────────────────────────
+
+export const subscriptionPayments = pgTable('subscription_payments', {
+  id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+  merchantId: varchar('merchant_id', { length: 36 }).references(() => merchants.id, { onDelete: 'cascade' }).notNull(),
+  plan: varchar('plan', { length: 50 }).notNull(), // 'shop' | 'developer' | 'scale' | 'enterprise'
+  billingCycle: varchar('billing_cycle', { length: 20 }).default('monthly').notNull(), // 'monthly' | 'annual'
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  currency: varchar('currency', { length: 10 }).default('ETB').notNull(),
+  provider: varchar('provider', { length: 50 }).notNull(), // 'TELEBIRR', 'CBE', 'CHAPA', 'DIRECT'
+  reference: varchar('reference', { length: 100 }).notNull(),
+  status: varchar('status', { length: 50 }).default('COMPLETED').notNull(), // 'COMPLETED', 'PENDING', 'FAILED'
+  validUntil: timestamp('valid_until'),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  merchantIdx: index('sub_payments_merchant_idx').on(t.merchantId),
+  referenceIdx: index('sub_payments_reference_idx').on(t.reference),
+}));
+
+// ─── 5. WEBHOOKS ─────────────────────────────────────────────────────────────
 
 export const webhooks = pgTable('webhooks', {
   id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -105,6 +126,7 @@ export const webhookDeliveries = pgTable('webhook_deliveries', {
 export const merchantsRelations = relations(merchants, ({ many }) => ({
   apiKeys: many(apiKeys),
   transactions: many(verifiedTransactions),
+  subscriptions: many(subscriptionPayments),
   webhooks: many(webhooks),
 }));
 
@@ -124,6 +146,13 @@ export const verifiedTransactionsRelations = relations(verifiedTransactions, ({ 
   apiKey: one(apiKeys, {
     fields: [verifiedTransactions.apiKeyId],
     references: [apiKeys.id],
+  }),
+}));
+
+export const subscriptionPaymentsRelations = relations(subscriptionPayments, ({ one }) => ({
+  merchant: one(merchants, {
+    fields: [subscriptionPayments.merchantId],
+    references: [merchants.id],
   }),
 }));
 

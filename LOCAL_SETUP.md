@@ -8,8 +8,7 @@ This is the personal verifier source based on `Vixen878/verifier-api`. Existing 
 cp .env.example .env
 pnpm install --frozen-lockfile
 pnpm approve-builds --all
-pnpm exec prisma generate
-pnpm exec prisma db push --skip-generate
+pnpm db:push
 pnpm build
 pnpm start
 ```

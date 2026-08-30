@@ -10,10 +10,10 @@ router.get('/', (_req: Request, res: Response): void => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chek Documentation — Ethiopian Payment Verification API</title>
   
-  <!-- Fonts: Outfit + Plus Jakarta Sans + JetBrains Mono -->
+  <!-- Fonts: Plus Jakarta Sans / Inter + JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   
   <!-- Phosphor Icons -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -21,45 +21,17 @@ router.get('/', (_req: Request, res: Response): void => {
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            amber: {
-              50: '#fffbeb',
-              100: '#fef3c7',
-              500: '#f59e0b',
-              600: '#d97706',
-              700: '#b45309',
-            },
-            brand: {
-              50: '#ecfdf5',
-              500: '#10b981',
-              600: '#059669',
-            }
-          },
-          fontFamily: {
-            heading: ['Outfit', 'sans-serif'],
-            body: ['Plus Jakarta Sans', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
-          }
-        }
-      }
-    }
-  </script>
   <style>
-    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #ffffff; color: #09090b; scroll-behavior: smooth; }
-    h1, h2, h3, h4, h5, h6, .font-heading { font-family: 'Outfit', sans-serif; }
+    body { font-family: 'Inter', sans-serif; background-color: #fafafa; color: #0f172a; scroll-behavior: smooth; }
+    h1, h2, h3, h4, h5, h6, .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
     code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
     
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #f4f4f5; }
-    ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
   </style>
 </head>
-<body class="bg-white text-zinc-900 antialiased min-h-screen selection:bg-amber-500/20 selection:text-amber-900">
+<body class="bg-[#fafafa] text-slate-900 antialiased min-h-screen selection:bg-amber-100 selection:text-amber-900">
 
   <!-- COMMAND PALETTE (Ctrl + K Modal) -->
   <div id="cmdPaletteOverlay" class="fixed inset-0 z-50 bg-zinc-950/40 backdrop-blur-sm flex items-start justify-center pt-20 p-4 hidden">

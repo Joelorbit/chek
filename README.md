@@ -68,8 +68,7 @@ cp .env.example .env
 
 ### 3. Database & Tests
 ```bash
-npx prisma db push
-npx prisma generate
+pnpm db:push
 pnpm test
 ```
 

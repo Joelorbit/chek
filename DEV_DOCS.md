@@ -108,9 +108,8 @@ MPESA_PROXY_KEY="your-mpesa-proxy-key"
 
 ### 3. Initialize Database & Run Tests
 ```bash
-# Push Prisma Schema to database
-npx prisma db push
-npx prisma generate
+# Push Drizzle Schema to PostgreSQL database
+pnpm db:push
 
 # Run Full Test Suite
 pnpm test

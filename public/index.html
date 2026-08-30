@@ -3,12 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chek — Ethiopian Payment Verification Engine & Developer API</title>
+  <title>Chek — Payment Verification API for Telebirr & CBE</title>
+  <meta name="description" content="Programmatic settlement verification API for Ethiopian banking infrastructure. Query Telebirr and CBE transaction references into normalized JSON payloads via domestic egress relays.">
   
-  <!-- Fonts: Outfit (Editorial Headings) + Plus Jakarta Sans (Body) + JetBrains Mono (Code) -->
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+
+  <!-- Fonts: Plus Jakarta Sans / Inter + JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   
   <!-- Phosphor Icons -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -18,465 +22,441 @@
 
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           colors: {
-            amber: {
-              50: '#fffbeb',
-              100: '#fef3c7',
-              200: '#fde68a',
-              400: '#fbbf24',
-              500: '#f59e0b',
-              600: '#d97706',
-              700: '#b45309',
-            },
-            telebirr: {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              500: '#0284c7',
-              600: '#0369a1',
-            },
-            cbe: {
-              50: '#faf5ff',
-              100: '#f3e8ff',
-              500: '#8b5cf6',
-              600: '#7c3aed',
-              700: '#6d28d9',
+            slate: {
+              850: '#151f32',
+              950: '#0a0f1d',
             }
           },
           fontFamily: {
-            heading: ['Outfit', 'sans-serif'],
-            body: ['Plus Jakarta Sans', 'sans-serif'],
+            display: ['Plus Jakarta Sans', 'sans-serif'],
+            sans: ['Inter', 'sans-serif'],
             mono: ['JetBrains Mono', 'monospace'],
-          },
-          animation: {
-            'fade-in': 'fadeIn 0.5s ease-out forwards',
-            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-            'float': 'float 4s ease-in-out infinite',
-          },
-          keyframes: {
-            fadeIn: {
-              '0%': { opacity: '0', transform: 'translateY(10px)' },
-              '100%': { opacity: '1', transform: 'translateY(0)' },
-            },
-            float: {
-              '0%, 100%': { transform: 'translateY(0px)' },
-              '50%': { transform: 'translateY(-6px)' },
-            }
           }
         }
       }
     }
   </script>
   <style>
-    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #ffffff; color: #09090b; }
-    h1, h2, h3, h4, h5, h6, .font-heading { font-family: 'Outfit', sans-serif; }
+    body {
+      background-color: #fafafa;
+      color: #0f172a;
+      font-family: 'Inter', sans-serif;
+    }
+    h1, h2, h3, h4, h5, h6, .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
     code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
     
-    .bg-grid {
-      background-size: 40px 40px;
-      background-image: linear-gradient(to right, rgba(24, 24, 27, 0.04) 1px, transparent 1px),
-                        linear-gradient(to bottom, rgba(24, 24, 27, 0.04) 1px, transparent 1px);
+    .light-grid {
+      background-size: 32px 32px;
+      background-image: linear-gradient(to right, rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
     }
     
-    .glow-amber {
-      background: radial-gradient(circle at 50% 50%, rgba(245, 158, 11, 0.12) 0%, rgba(255, 255, 255, 0) 70%);
+    .dev-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .dev-card:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.06);
+    }
+
+    .btn-dark {
+      background-color: #0f172a;
+      color: #ffffff;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+    .btn-dark:hover {
+      background-color: #1e293b;
+      transform: translateY(-0.5px);
     }
 
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #f4f4f5; }
-    ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
   </style>
 </head>
-<body class="bg-white text-zinc-900 antialiased min-h-screen selection:bg-amber-500/20 selection:text-amber-900 relative">
+<body class="bg-[#fafafa] text-slate-900 antialiased min-h-screen relative selection:bg-amber-100 selection:text-amber-900">
 
-  <!-- BACKGROUND SUBTLE GRID PATTERN -->
-  <div class="fixed inset-0 bg-grid pointer-events-none z-0 opacity-80"></div>
-  <div class="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] glow-amber pointer-events-none z-0"></div>
+  <!-- Background Light Grid -->
+  <div class="fixed inset-0 light-grid pointer-events-none z-0"></div>
 
-  <!-- FLOATING TOP NAVIGATION BAR -->
-  <header class="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/85 backdrop-blur-xl">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+  <!-- 1. NAVIGATION -->
+  <header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
+    <nav class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
       
-      <!-- Brand Logo -->
-      <a href="/" class="flex items-center gap-3.5 group">
-        <div class="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-200/90 flex items-center justify-center font-bold text-amber-600 shadow-sm transition group-hover:scale-105 group-hover:bg-amber-100/70">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" class="w-6 h-6 fill-current text-amber-600">
+      <!-- Brand Logo with EXACT Receipt Icon -->
+      <a href="/" class="flex items-center gap-3 group">
+        <div class="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center p-1.5 shadow-sm transition group-hover:scale-105">
+          <svg class="w-5 h-5 text-slate-950" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor">
             <path d="M142 66.2C150.5 62.3 160.5 63.7 167.6 69.8L208 104.4L248.4 69.8C257.4 62.1 270.7 62.1 279.6 69.8L320 104.4L360.4 69.8C369.4 62.1 382.6 62.1 391.6 69.8L432 104.4L472.4 69.8C479.5 63.7 489.5 62.3 498 66.2C506.5 70.1 512 78.6 512 88L512 552C512 561.4 506.5 569.9 498 573.8C489.5 577.7 479.5 576.3 472.4 570.2L432 535.6L391.6 570.2C382.6 577.9 369.4 577.9 360.4 570.2L320 535.6L279.6 570.2C270.6 577.9 257.3 577.9 248.4 570.2L208 535.6L167.6 570.2C160.5 576.3 150.5 577.7 142 573.8C133.5 569.9 128 561.4 128 552L128 88C128 78.6 133.5 70.1 142 66.2zM232 200C218.7 200 208 210.7 208 224C208 237.3 218.7 248 232 248L408 248C421.3 248 432 237.3 432 224C432 210.7 421.3 200 408 200L232 200zM208 416C208 429.3 218.7 440 232 440L408 440C421.3 440 432 429.3 432 416C432 402.7 421.3 392 408 392L232 392C218.7 392 208 402.7 208 416zM232 296C218.7 296 208 306.7 208 320C208 333.3 218.7 344 232 344L408 344C421.3 344 432 333.3 432 320C432 306.7 421.3 296 408 296L232 296z"/>
           </svg>
         </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="text-xl font-extrabold font-heading tracking-tight text-zinc-950">Chek</span>
-            <span class="text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md uppercase">Production v3.1</span>
-          </div>
-          <span class="text-[11px] font-medium text-zinc-500 block">Ethiopian Payment Infrastructure</span>
+        <div class="flex items-center gap-1.5">
+          <span class="font-bold font-display text-lg tracking-tight text-slate-900">Chek</span>
+          <span class="text-amber-800 text-[11px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300">API</span>
         </div>
       </a>
 
-      <!-- Desktop Links -->
-      <nav class="hidden md:flex items-center gap-8 text-xs font-semibold text-zinc-600">
-        <a href="#sandbox" class="hover:text-amber-600 transition flex items-center gap-1.5">
-          <i class="ph-bold ph-lightning text-amber-500 text-sm"></i>
-          <span>Live Sandbox</span>
-        </a>
-        <a href="#providers" class="hover:text-amber-600 transition">Providers</a>
-        <a href="#architecture" class="hover:text-amber-600 transition">Architecture</a>
-        <a href="/docs" class="hover:text-amber-600 transition flex items-center gap-1">
-          <span>Docs & API</span>
-          <i class="ph ph-arrow-up-right text-[11px]"></i>
-        </a>
-        <a href="#pricing" class="hover:text-amber-600 transition">Pricing</a>
-      </nav>
-
-      <!-- Action CTAs -->
-      <div class="flex items-center gap-3">
-        <div class="hidden sm:flex items-center gap-2 bg-zinc-50 border border-zinc-200 px-3 py-1.5 rounded-2xl text-xs">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span class="font-mono text-zinc-600 font-medium">Gateway 99.98% SLA</span>
-        </div>
-
-        <a href="/admin" class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs transition shadow-sm hover:shadow-md flex items-center gap-1.5">
-          <span>Merchant Console</span>
-          <i class="ph-bold ph-arrow-right"></i>
-        </a>
+      <!-- Navigation Links -->
+      <div class="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-600">
+        <a href="#api-reference" class="hover:text-slate-900 transition">API Reference</a>
+        <a href="#webhooks" class="hover:text-slate-900 transition">Webhooks</a>
+        <a href="#pricing" class="hover:text-slate-900 transition">Pricing</a>
+        <a href="/status" class="hover:text-slate-900 transition">Status</a>
+        <a href="/admin" class="hover:text-slate-900 transition font-bold text-slate-900">Console</a>
       </div>
-    </div>
+
+      <!-- Action Items & Auth -->
+      <div class="flex items-center gap-2.5">
+        <button onclick="openCmdPalette()" class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs transition border border-slate-200">
+          <i class="ph ph-magnifying-glass text-sm text-slate-500"></i>
+          <span class="hidden sm:inline">Search</span>
+          <kbd class="font-mono text-[10px] bg-white px-1.5 py-0.5 rounded border border-slate-300 shadow-2xs">⌘K</kbd>
+        </button>
+
+        <button onclick="openAuthModal('login')" class="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition shadow-2xs">
+          Sign In
+        </button>
+
+        <button onclick="openAuthModal('signup')" class="btn-dark px-4 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-sm">
+          <span>Get API Key</span>
+          <i class="ph-bold ph-arrow-right text-xs"></i>
+        </button>
+      </div>
+
+    </nav>
   </header>
 
-  <!-- HERO SECTION -->
-  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20">
+  <!-- 2. DEVELOPER HERO SECTION -->
+  <main class="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 pt-16 pb-24 text-center">
     
-    <div class="text-center max-w-3xl mx-auto mb-14">
-      
-      <!-- Announce Badge -->
-      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-amber-200 bg-amber-50/80 text-amber-900 text-xs font-mono font-semibold mb-6 shadow-sm animate-fade-in">
-        <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-        <span>Dual-Engine Verification: Live Gateway + Microsecond Regex</span>
+    <!-- Top Pill -->
+    <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border border-slate-200 bg-white shadow-2xs text-slate-700 text-xs font-semibold mb-6">
+      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+      <span class="text-[11px] font-mono font-medium text-slate-600">DOMESTIC BANKING EGRESS RELAY</span>
+    </div>
+
+    <!-- Technical Headline -->
+    <h1 class="text-4xl sm:text-6xl font-black font-display tracking-tight text-slate-950 leading-[1.12] max-w-4xl mx-auto">
+      Verify <span class="text-emerald-600">Telebirr</span> & <span class="text-purple-700">CBE</span> payments with a single API call.
+    </h1>
+
+    <!-- Pure Technical Developer Subheadline -->
+    <p class="mt-5 max-w-2xl mx-auto text-base sm:text-lg text-slate-600 font-normal leading-relaxed">
+      Programmatic settlement verification API for Ethiopian banking infrastructure. Query Telebirr transaction IDs and CBE core banking references directly over Addis egress relays and receive normalized JSON settlement data in milliseconds.
+    </p>
+
+    <!-- Bank Latency Indicators -->
+    <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
+      <div class="dev-card inline-flex items-center gap-3 rounded-xl px-4 py-2 text-xs font-bold text-slate-800">
+        <img src="/telebirr.jpg" alt="Telebirr" class="w-6 h-6 rounded-full object-cover border border-emerald-200" />
+        <span>Telebirr Relay</span>
+        <span class="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">18ms latency</span>
       </div>
 
-      <!-- Main Headline -->
-      <h1 class="text-4xl sm:text-6xl font-black font-heading tracking-tight text-zinc-950 leading-[1.1] mb-6">
-        The Verification Engine for <span class="text-amber-600 underline decoration-amber-300 decoration-wavy underline-offset-8">Ethiopian Payments</span>.
-      </h1>
-
-      <p class="text-base sm:text-lg text-zinc-600 leading-relaxed max-w-2xl mx-auto font-normal">
-        Eliminate fake SMS confirmations and photoshopped receipt screenshots. Automatically verify <strong>Telebirr</strong> transaction IDs and <strong>CBE Mobile App</strong> tokens in under 2 seconds with signed webhooks and full audit trails.
-      </p>
-
-      <!-- Primary Action Buttons -->
-      <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
-        <a href="#sandbox" class="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-sm transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2">
-          <i class="ph-bold ph-lightning text-base"></i>
-          <span>Try Live Verification</span>
-        </a>
-        
-        <a href="/docs" class="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-zinc-50 hover:bg-zinc-100 text-zinc-800 border border-zinc-200 font-semibold text-sm transition flex items-center justify-center gap-2">
-          <i class="ph ph-book-open text-base"></i>
-          <span>Explore Developer Docs</span>
-          <kbd class="text-[10px] font-mono bg-white border border-zinc-200 px-1.5 py-0.5 rounded text-zinc-400">Ctrl K</kbd>
-        </a>
-      </div>
-
-      <!-- Trust Bar Metrics -->
-      <div class="grid grid-cols-3 gap-4 max-w-lg mx-auto mt-12 pt-8 border-t border-zinc-200 text-center">
-        <div>
-          <p class="text-2xl font-black font-heading text-zinc-900">< 2.0s</p>
-          <p class="text-xs text-zinc-500 font-medium mt-0.5">Live Portal Lookup</p>
-        </div>
-        <div>
-          <p class="text-2xl font-black font-heading text-emerald-600">1.8 ms</p>
-          <p class="text-xs text-zinc-500 font-medium mt-0.5">Local Regex Parser</p>
-        </div>
-        <div>
-          <p class="text-2xl font-black font-heading text-amber-600">100%</p>
-          <p class="text-xs text-zinc-500 font-medium mt-0.5">Fraud Elimination</p>
-        </div>
+      <div class="dev-card inline-flex items-center gap-3 rounded-xl px-4 py-2 text-xs font-bold text-slate-800">
+        <img src="/cbe.jpg" alt="CBE" class="w-7 h-7 rounded-full object-cover border border-purple-200" />
+        <span>CBE Core Gateway</span>
+        <span class="text-[10px] font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full">28ms latency</span>
       </div>
     </div>
 
-    <!-- PROVIDER BADGES STRIP -->
-    <div id="providers" class="max-w-4xl mx-auto mb-16">
-      <p class="text-center text-xs font-mono uppercase tracking-widest text-zinc-400 mb-6 font-semibold">Active & Live Payment Verification Rails</p>
-      
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <!-- 3. LIVE API VERIFICATION SANDBOX -->
+    <div class="mt-10 max-w-3xl mx-auto text-left">
+      <div class="dev-card rounded-2xl p-6 sm:p-7 shadow-xl bg-white border-slate-200">
         
-        <!-- Telebirr Card -->
-        <div class="bg-white border border-zinc-200/90 hover:border-sky-300 p-5 rounded-2xl transition shadow-sm hover:shadow-md flex items-start gap-4">
-          <div class="w-12 h-12 rounded-2xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 font-bold shrink-0">
-            <i class="ph-bold ph-device-mobile text-2xl"></i>
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <p class="text-sm font-bold text-zinc-900">Ethio Telecom Telebirr</p>
-              <span class="px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-mono font-bold">100% LIVE</span>
-            </div>
-            <p class="text-xs text-zinc-500 mt-1">Live portal lookup for 10-char reference codes (e.g. <code>DHS78S7FQN</code>) + instant natural English & Amharic SMS parser fallback.</p>
-          </div>
-        </div>
-
-        <!-- CBE Card -->
-        <div class="bg-white border border-zinc-200/90 hover:border-purple-300 p-5 rounded-2xl transition shadow-sm hover:shadow-md flex items-start gap-4">
-          <div class="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 font-bold shrink-0">
-            <i class="ph-bold ph-bank text-2xl"></i>
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <p class="text-sm font-bold text-zinc-900">Commercial Bank of Ethiopia (CBE)</p>
-              <span class="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-mono font-bold">100% LIVE</span>
-            </div>
-            <p class="text-xs text-zinc-500 mt-1">Direct token verification via <code>mb.cbe.com.et</code> mobile app API, legacy <code>FT...</code> references with account suffix, and official VAT invoice parser.</p>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- LIVE INTERACTIVE PAYMENT VERIFICATION STUDIO (HERO WIDGET) -->
-    <div id="sandbox" class="max-w-4xl mx-auto bg-white border border-zinc-200 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-zinc-200/60 relative overflow-hidden mb-24">
-      
-      <!-- Widget Header -->
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-6 border-b border-zinc-100 gap-4 mb-6">
-        <div>
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
           <div class="flex items-center gap-2">
-            <h2 class="text-xl font-bold font-heading text-zinc-900">Live Verification Terminal</h2>
-            <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold">LIVE AGENT READY</span>
+            <span class="px-2 py-0.5 rounded bg-slate-900 text-white font-mono text-[10px] font-bold">POST</span>
+            <code class="text-xs font-mono font-bold text-slate-900">/verify</code>
           </div>
-          <p class="text-xs text-zinc-500 mt-1">Test real transaction references, CBE mobile tokens, or paste full customer SMS text.</p>
+          <span class="text-[10px] font-mono font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">
+            Anonymous sandbox · 20 checks/hr per IP
+          </span>
         </div>
 
-        <!-- Mode Presets -->
-        <div class="flex flex-wrap gap-1.5">
-          <button onclick="setStudioPreset('telebirr')" id="btnPresetTelebirr" class="px-3 py-1.5 rounded-xl bg-sky-50 text-sky-700 border border-sky-200 text-xs font-semibold hover:bg-sky-100 transition">
-            Telebirr (DHS78S7FQN)
-          </button>
-          <button onclick="setStudioPreset('cbe')" id="btnPresetCbe" class="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 text-xs font-semibold hover:bg-purple-100 transition">
-            CBE Token
-          </button>
-          <button onclick="setStudioPreset('sms')" id="btnPresetSms" class="px-3 py-1.5 rounded-xl bg-zinc-100 text-zinc-700 border border-zinc-200 text-xs font-semibold hover:bg-zinc-200 transition">
-            Raw SMS
-          </button>
-        </div>
-      </div>
-
-      <!-- Input Form -->
-      <div class="space-y-4">
-        <div>
-          <label class="block text-xs font-semibold text-zinc-700 mb-1.5">Transaction Reference or Pasted SMS Receipt</label>
-          <div class="relative">
-            <textarea id="heroInput" rows="3" placeholder="Enter reference (e.g. DHS78S7FQN) or paste full SMS receipt message..." class="w-full bg-zinc-50 border border-zinc-200 rounded-2xl p-4 text-xs font-mono text-zinc-900 outline-none focus:border-amber-500 focus:bg-white transition"></textarea>
+        <!-- Input Query Form -->
+        <form onsubmit="handleOmniVerify(event)" class="mt-5 space-y-4">
+          <div class="relative flex items-center">
+            <input 
+              id="omniInput" 
+              type="text" 
+              placeholder="Enter Telebirr reference (e.g. DHS78S7FQN) or CBE reference (e.g. FT240626691234)..." 
+              autocomplete="off" 
+              spellcheck="false" 
+              class="w-full rounded-xl border border-slate-300 bg-slate-50/60 px-4 py-3.5 pr-28 text-xs sm:text-sm font-mono text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-slate-900 transition"
+            />
+            <button 
+              id="btnOmniVerify"
+              type="submit" 
+              class="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 rounded-lg btn-dark px-4 py-2 text-xs font-bold transition cursor-pointer shadow-sm">
+              <i class="ph-bold ph-lightning text-xs text-amber-400"></i>
+              <span>Send Request</span>
+            </button>
           </div>
-        </div>
 
-        <div class="flex items-center justify-between">
-          <button onclick="runHeroVerify()" id="btnHeroVerify" class="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs transition shadow-sm flex items-center gap-2">
-            <i class="ph-bold ph-lightning text-base"></i>
-            <span>Execute Live Verification</span>
-          </button>
+          <!-- Quick Test Samples -->
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+            <div class="flex items-center gap-2 font-mono text-[11px]">
+              <span class="text-slate-400">Sample Payload:</span>
+              <button type="button" onclick="setSample('telebirr')" class="px-2.5 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold flex items-center gap-1 transition">
+                <i class="ph-bold ph-arrow-circle-right text-xs"></i> Telebirr: DHS78S7FQN
+              </button>
+              <button type="button" onclick="setSample('cbe')" class="px-2.5 py-1 rounded-md bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-800 font-bold flex items-center gap-1 transition">
+                <i class="ph-bold ph-arrow-circle-right text-xs"></i> CBE: FT240626691234
+              </button>
+            </div>
+          </div>
+        </form>
 
-          <span id="heroDurationBadge" class="text-xs font-mono text-zinc-400 font-medium hidden">⏱️ <span id="heroTime">0ms</span></span>
-        </div>
       </div>
-
-      <!-- Verification Output Box -->
-      <div id="heroResultBox" class="mt-6 pt-6 border-t border-zinc-100 hidden animate-fade-in">
-        <div class="flex items-center justify-between mb-3">
-          <p class="text-xs font-mono uppercase font-bold text-zinc-500">Verified Payload Output</p>
-          <span id="heroStatusPill" class="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">VERIFIED</span>
-        </div>
-        
-        <pre id="heroJsonOutput" class="bg-zinc-950 text-emerald-400 p-5 rounded-2xl text-xs font-mono overflow-x-auto leading-relaxed border border-zinc-800"></pre>
-      </div>
-
     </div>
 
-    <!-- THE PROBLEM VS CHEK ARCHITECTURE -->
-    <section id="architecture" class="max-w-5xl mx-auto my-24 space-y-12">
-      <div class="text-center max-w-2xl mx-auto">
-        <span class="text-xs font-mono font-semibold uppercase tracking-widest text-amber-600">Enterprise Reliability</span>
-        <h2 class="text-3xl font-extrabold font-heading text-zinc-950 mt-1">Manual Screenshot Checks vs Chek Automated Protocol</h2>
+    <!-- 4. LIVE JSON RESPONSE DRAWER -->
+    <div id="resultContainer" class="mt-6 max-w-3xl mx-auto text-left hidden">
+      <div class="dev-card border-2 border-emerald-500/50 rounded-2xl p-6 relative overflow-hidden shadow-xl bg-white">
+        
+        <!-- Status Header -->
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div class="flex items-center gap-2.5">
+            <span id="resProviderDot" class="w-3 h-3 rounded-full bg-emerald-500"></span>
+            <h3 id="resProviderName" class="font-bold font-display text-base text-slate-900">Verification Result</h3>
+          </div>
+          <div class="flex items-center gap-2 font-mono text-xs">
+            <span id="resDurationBadge" class="text-slate-500">18ms</span>
+            <span id="resStatusBadge" class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold font-mono">
+              200 OK
+            </span>
+          </div>
+        </div>
+
+        <!-- Details Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 py-5 border-b border-slate-100 text-xs">
+          <div>
+            <p class="text-slate-400 text-[11px] font-medium font-mono">amount</p>
+            <p id="resAmount" class="text-2xl font-extrabold font-display text-slate-950 mt-0.5">-- ETB</p>
+          </div>
+          <div>
+            <p class="text-slate-400 text-[11px] font-medium font-mono">reference</p>
+            <p id="resReference" class="font-mono font-bold text-amber-700 mt-1 truncate">--</p>
+          </div>
+          <div>
+            <p class="text-slate-400 text-[11px] font-medium font-mono">verifiedAt</p>
+            <p id="resTimestamp" class="text-slate-700 mt-1 font-mono">--</p>
+          </div>
+          <div class="sm:col-span-1">
+            <p class="text-slate-400 text-[11px] font-medium font-mono">payer</p>
+            <p id="resPayer" class="font-bold text-slate-900 mt-0.5 truncate">--</p>
+          </div>
+          <div class="sm:col-span-2">
+            <p class="text-slate-400 text-[11px] font-medium font-mono">receiver</p>
+            <p id="resReceiver" class="font-bold text-slate-900 mt-0.5 truncate">--</p>
+          </div>
+        </div>
+
+        <!-- Raw JSON -->
+        <div class="mt-4">
+          <div class="flex items-center justify-between mb-2">
+            <button onclick="toggleJsonView()" class="text-xs font-semibold text-slate-700 hover:text-slate-900 flex items-center gap-1">
+              <i id="jsonToggleIcon" class="ph-bold ph-caret-right text-xs text-slate-500"></i>
+              <span>Normalized Response Payload</span>
+            </button>
+            <button onclick="copyResultJson()" class="text-xs font-mono text-slate-700 hover:underline font-bold flex items-center gap-1">
+              <i class="ph ph-copy text-xs"></i>
+              <span>Copy JSON</span>
+            </button>
+          </div>
+          <pre id="jsonViewer" class="bg-slate-950 text-emerald-400 p-4 rounded-xl text-xs font-mono overflow-x-auto leading-relaxed hidden border border-slate-800"></pre>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 5. CODE INTEGRATION EXAMPLES -->
+    <section id="api-reference" class="mt-24 scroll-mt-24 text-left max-w-4xl mx-auto">
+      <div class="text-center mb-10">
+        <span class="text-xs font-mono font-bold uppercase tracking-widest text-slate-500">Integration</span>
+        <h2 class="text-3xl sm:text-4xl font-black font-display tracking-tight text-slate-950 mt-1">
+          Simple REST Endpoint
+        </h2>
+        <p class="mx-auto mt-2 max-w-xl text-xs sm:text-sm text-slate-600">
+          Make a simple POST request with header <code class="text-slate-900 font-mono bg-slate-100 px-1 py-0.5 rounded border border-slate-200">x-api-key</code> and receive atomic transaction details.
+        </p>
+      </div>
+
+      <div class="dev-card rounded-2xl overflow-hidden shadow-lg border-slate-300">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-100">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-rose-400"></span>
+            <span class="w-3 h-3 rounded-full bg-amber-400"></span>
+            <span class="w-3 h-3 rounded-full bg-emerald-400"></span>
+            <span class="text-xs font-mono text-slate-700 font-semibold ml-2">POST https://api.chek.et/verify</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="switchCodeTab('curl')" id="btnCodeCurl" class="px-2.5 py-1 rounded-md text-[11px] font-mono bg-white text-slate-900 font-bold border border-slate-300 shadow-2xs">cURL</button>
+            <button onclick="switchCodeTab('node')" id="btnCodeNode" class="px-2.5 py-1 rounded-md text-[11px] font-mono text-slate-600 hover:text-slate-900">Node.js</button>
+            <button onclick="switchCodeTab('python')" id="btnCodePython" class="px-2.5 py-1 rounded-md text-[11px] font-mono text-slate-600 hover:text-slate-900">Python</button>
+          </div>
+        </div>
+
+        <div class="p-5 bg-slate-950 font-mono text-xs leading-relaxed overflow-x-auto text-slate-200">
+          <pre id="codeSnippetCurl">curl -X POST https://api.chek.et/verify \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: sk_live_9301e6a48..." \
+  -d '{
+    "input": "DHS78S7FQN"
+  }'</pre>
+          
+          <pre id="codeSnippetNode" class="hidden">const res = await fetch('https://api.chek.et/verify', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-api-key': process.env.CHEK_API_KEY
+  },
+  body: JSON.stringify({ input: 'DHS78S7FQN' })
+});
+
+const { success, provider, data } = await res.json();
+if (success && data.amount >= 2500) {
+  await fulfillCustomerOrder(orderId);
+}</pre>
+
+          <pre id="codeSnippetPython" class="hidden">import requests
+
+res = requests.post(
+    "https://api.chek.et/verify",
+    headers={"x-api-key": "sk_live_9301e6a48..."},
+    json={"input": "FT240626691234"}
+)
+payload = res.json()
+print("Settled Amount:", payload["data"]["amount"])</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. WEBHOOKS SECTION -->
+    <section id="webhooks" class="mt-24 scroll-mt-24 text-left max-w-4xl mx-auto">
+      <div class="text-center mb-10">
+        <span class="text-xs font-mono font-bold uppercase tracking-widest text-slate-500">Webhooks</span>
+        <h2 class="text-3xl sm:text-4xl font-black font-display tracking-tight text-slate-950 mt-1">
+          Cryptographically Signed Events
+        </h2>
+        <p class="mx-auto mt-2 max-w-xl text-xs sm:text-sm text-slate-600">
+          Receive real-time HTTP POST notifications with HMAC-SHA256 signatures on payment confirmation.
+        </p>
+      </div>
+
+      <div class="dev-card p-6 rounded-2xl bg-white">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+          <div>
+            <h3 class="text-base font-bold text-slate-900 font-display mb-2">Idempotent Webhook Delivery</h3>
+            <p class="text-xs text-slate-600 leading-relaxed mb-4">
+              Chek guarantees delivery with automatic exponential backoff retries. Verify every webhook payload using header <code class="bg-slate-100 border border-slate-200 px-1 py-0.5 rounded text-slate-900 font-mono text-[11px]">X-Chek-Signature</code> and your signing secret.
+            </p>
+            <ul class="space-y-2 text-xs text-slate-700 font-medium">
+              <li class="flex items-center gap-2"><i class="ph-bold ph-check text-emerald-600"></i> Signed with SHA-256 HMAC digest</li>
+              <li class="flex items-center gap-2"><i class="ph-bold ph-check text-emerald-600"></i> Direct retry queue with 5 attempts</li>
+              <li class="flex items-center gap-2"><i class="ph-bold ph-check text-emerald-600"></i> Inspect latency & HTTP status in console</li>
+            </ul>
+          </div>
+
+          <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 font-mono text-[11px] text-slate-200 overflow-x-auto">
+            <pre>// Event: payment.verified
+{
+  "event": "payment.verified",
+  "transaction": {
+    "reference": "DHS78S7FQN",
+    "provider": "TELEBIRR",
+    "amount": 2500.00,
+    "payer": "Abebe Kebede",
+    "receiver": "Merchant Account",
+    "verifiedAt": "2026-08-30T18:50:00Z"
+  }
+}</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. DEVELOPER PRICING -->
+    <section id="pricing" class="mt-24 scroll-mt-24 text-left max-w-4xl mx-auto">
+      <div class="text-center mb-10">
+        <span class="text-xs font-mono font-bold uppercase tracking-widest text-slate-500">Tier Entitlements</span>
+        <h2 class="text-3xl sm:text-4xl font-black font-display tracking-tight text-slate-950 mt-1">
+          Simple, Transparent Pricing
+        </h2>
+        <p class="mx-auto mt-2 max-w-xl text-xs sm:text-sm text-slate-600">
+          Start building for free, or activate the Unlimited Plan for 4,000 ETB/month with unmetered throughput.
+        </p>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         
-        <!-- The Problem -->
-        <div class="bg-zinc-50 border border-zinc-200 p-6 rounded-3xl space-y-4">
-          <div class="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
-            <i class="ph-bold ph-x-circle text-xl"></i>
-          </div>
-          <h3 class="text-lg font-bold font-heading text-zinc-900">Before Chek: Vulnerable & Slow</h3>
-          <ul class="space-y-2.5 text-xs text-zinc-600">
-            <li class="flex items-start gap-2">
-              <i class="ph-bold ph-x text-rose-500 mt-0.5"></i>
-              <span><strong>Photoshopped Screenshots:</strong> Scammers alter names and amounts on fake receipt graphics.</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <i class="ph-bold ph-x text-rose-500 mt-0.5"></i>
-              <span><strong>Fake SMS Generators:</strong> Telegram bots spoofing "You received 500 ETB" texts.</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <i class="ph-bold ph-x text-rose-500 mt-0.5"></i>
-              <span><strong>Manual Staff Overhead:</strong> 15-minute checkout delays while support staff check personal bank apps.</span>
-            </li>
-          </ul>
-        </div>
-
-        <!-- The Solution -->
-        <div class="bg-white border border-amber-200 p-6 rounded-3xl space-y-4 shadow-sm relative overflow-hidden">
-          <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
-            <i class="ph-bold ph-check-circle text-xl"></i>
-          </div>
-          <h3 class="text-lg font-bold font-heading text-zinc-900">With Chek: Instant Cryptographic Certainty</h3>
-          <ul class="space-y-2.5 text-xs text-zinc-700">
-            <li class="flex items-start gap-2">
-              <i class="ph-bold ph-check text-emerald-600 mt-0.5"></i>
-              <span><strong>Zero-Trust Bank Verification:</strong> Receipts are verified live with Ethio Telecom and CBE servers.</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <i class="ph-bold ph-check text-emerald-600 mt-0.5"></i>
-              <span><strong>Replay Attack Prevention:</strong> Each reference can only be redeemed once in PostgreSQL.</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <i class="ph-bold ph-check text-emerald-600 mt-0.5"></i>
-              <span><strong>Instant Webhook Dispatch:</strong> Automatically unlock Telegram orders, ecommerce checkouts, or credits.</span>
-            </li>
-          </ul>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- DEVELOPER CODE PLAYGROUND -->
-    <section class="max-w-4xl mx-auto my-24">
-      <div class="bg-zinc-950 text-white rounded-3xl p-6 sm:p-8 border border-zinc-800 shadow-2xl">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-6 border-b border-zinc-800 gap-4 mb-6">
+        <!-- FREE PLAN -->
+        <div class="dev-card rounded-2xl p-7 flex flex-col justify-between">
           <div>
-            <span class="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold">API Integration</span>
-            <h3 class="text-xl font-bold font-heading text-white mt-0.5">Verify Any Payment in 3 Lines of Code</h3>
+            <div class="flex justify-between items-center mb-2">
+              <h3 class="text-xl font-bold font-display text-slate-900">Free Starter</h3>
+              <span class="text-xs font-mono text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full font-bold">Development</span>
+            </div>
+            <p class="text-xs text-slate-500">For prototyping, test integrations, and early bot development.</p>
+            
+            <div class="mt-5 mb-5">
+              <span class="text-3xl font-black font-display text-slate-900">0 ETB</span>
+              <span class="text-xs text-slate-500 font-mono">/ month</span>
+            </div>
+
+            <ul class="space-y-3 text-xs text-slate-700 pt-4 border-t border-slate-100">
+              <li class="flex items-center gap-2"><i class="ph-bold ph-check text-amber-600 text-sm"></i> 250 verified receipts / month</li>
+              <li class="flex items-center gap-2"><i class="ph-bold ph-check text-amber-600 text-sm"></i> Telebirr & CBE official source access</li>
+              <li class="flex items-center gap-2"><i class="ph-bold ph-check text-amber-600 text-sm"></i> REST API + HMAC Webhooks</li>
+              <li class="flex items-center gap-2"><i class="ph-bold ph-check text-amber-600 text-sm"></i> Database Merchant Console</li>
+            </ul>
           </div>
-          
-          <!-- Code Tabs -->
-          <div class="flex bg-zinc-900 p-1 rounded-xl text-xs font-mono border border-zinc-800">
-            <button onclick="showCodeTab('curl')" id="tab-code-curl" class="px-3 py-1.5 rounded-lg font-bold bg-amber-500 text-zinc-950">cURL</button>
-            <button onclick="showCodeTab('node')" id="tab-code-node" class="px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white font-semibold">Node.js</button>
-            <button onclick="showCodeTab('python')" id="tab-code-python" class="px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white font-semibold">Python</button>
-            <button onclick="showCodeTab('bot')" id="tab-code-bot" class="px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white font-semibold">Telegram Bot</button>
-          </div>
+
+          <button onclick="openAuthModal('signup')" class="mt-6 w-full py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs">
+            <span>Get Free API Key</span>
+            <i class="ph-bold ph-arrow-right text-xs"></i>
+          </button>
         </div>
 
-        <!-- Code Snippets -->
-        <div id="code-curl" class="font-mono text-xs text-zinc-300 overflow-x-auto leading-relaxed">
-          <pre><code>curl -X POST http://localhost:3001/verify \
-  -H "x-api-key: sk_live_YOUR_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"reference": "DHS78S7FQN"}'</code></pre>
-        </div>
+        <!-- UNLIMITED PLAN (4,000 ETB / MO) -->
+        <div class="dev-card border-2 border-slate-900 rounded-2xl p-7 flex flex-col justify-between relative shadow-xl bg-white">
+          <span class="absolute -top-3 right-5 bg-slate-900 text-white text-[10px] font-mono font-bold uppercase px-3 py-0.5 rounded-full shadow-sm">UNLIMITED</span>
 
-        <div id="code-node" class="font-mono text-xs text-zinc-300 overflow-x-auto leading-relaxed hidden">
-          <pre><code>import axios from 'axios';
-
-const { data } = await axios.post('http://localhost:3001/verify', {
-  reference: 'DHS78S7FQN'
-}, {
-  headers: { 'x-api-key': 'sk_live_YOUR_KEY' }
-});
-
-if (data.success) {
-  console.log(`Payment confirmed: ${data.data.settledAmount} from ${data.data.payerName}`);
-}</code></pre>
-        </div>
-
-        <div id="code-python" class="font-mono text-xs text-zinc-300 overflow-x-auto leading-relaxed hidden">
-          <pre><code>import requests
-
-res = requests.post(
-    'http://localhost:3001/verify',
-    headers={'x-api-key': 'sk_live_YOUR_KEY'},
-    json={'reference': 'DHS78S7FQN'}
-)
-
-data = res.json()
-if data.get('success'):
-    print(f"Verified: {data['data']['payerName']}, Amount: {data['data']['settledAmount']}")</code></pre>
-        </div>
-
-        <div id="code-bot" class="font-mono text-xs text-zinc-300 overflow-x-auto leading-relaxed hidden">
-          <pre><code>import { Telegraf } from 'telegraf';
-import axios from 'axios';
-
-const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
-
-bot.on('text', async (ctx) => {
-  const text = ctx.message.text.trim();
-  const res = await axios.post('http://localhost:3001/verify', {
-    reference: text.includes(' ') ? undefined : text,
-    receiptText: text.includes(' ') ? text : undefined
-  }, { headers: { 'x-api-key': process.env.CHEK_KEY } });
-
-  if (res.data.success) {
-    await ctx.reply(`✅ Payment Verified: ${res.data.data.settledAmount} ETB!\nOrder Unlocked 🎉`);
-  }
-});
-bot.launch();</code></pre>
-        </div>
-
-        <div class="mt-6 pt-6 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
-          <span>Read the full specification with HMAC SHA-256 signatures:</span>
-          <a href="/docs" class="text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1">
-            <span>View All Docs</span>
-            <i class="ph-bold ph-arrow-right"></i>
-          </a>
-        </div>
-      </div>
-    </section>
-
-    <!-- PRICING TIERS -->
-    <section id="pricing" class="max-w-4xl mx-auto my-24">
-      <div class="text-center mb-12">
-        <span class="text-xs font-mono font-semibold uppercase tracking-widest text-amber-600">Transparent Pricing</span>
-        <h2 class="text-3xl font-extrabold font-heading text-zinc-950 mt-1">Free for Developers, Scalable for Merchants</h2>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        
-        <!-- Free Tier -->
-        <div class="bg-white border border-zinc-200 p-8 rounded-3xl space-y-6 shadow-sm">
           <div>
-            <h3 class="text-lg font-bold font-heading text-zinc-900">Developer Starter</h3>
-            <p class="text-xs text-zinc-500 mt-1">For hobby bots, indie developers & testing.</p>
-          </div>
-          <div class="flex items-baseline gap-1">
-            <span class="text-4xl font-black font-heading text-zinc-950">0 ETB</span>
-            <span class="text-xs text-zinc-500">/ forever</span>
-          </div>
-          <ul class="space-y-2.5 text-xs text-zinc-600">
-            <li class="flex items-center gap-2"><i class="ph-bold ph-check text-emerald-600"></i> Up to 1,000 verifications / mo</li>
-            <li class="flex items-center gap-2"><i class="ph-bold ph-check text-emerald-600"></i> Telebirr & CBE Gateway Access</li>
-            <li class="flex items-center gap-2"><i class="ph-bold ph-check text-emerald-600"></i> Local Regex SMS Parser</li>
-            <li class="flex items-center gap-2"><i class="ph-bold ph-check text-emerald-600"></i> 60 requests / minute rate limit</li>
-          </ul>
-          <a href="/admin" class="block w-full text-center py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold text-xs transition">Create Free Account</a>
-        </div>
+            <div class="flex justify-between items-center mb-2">
+              <h3 class="text-xl font-bold font-display text-slate-900">Unlimited Plan</h3>
+              <span class="text-xs font-mono text-amber-800 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full font-bold">Production</span>
+            </div>
+            <p class="text-xs text-slate-500">For high-traffic e-commerce checkouts, SaaS platforms, and enterprise bots.</p>
+            
+            <div class="mt-5 mb-5">
+              <span class="text-3xl font-black font-display text-slate-950">4,000 ETB</span>
+              <span class="text-xs text-slate-500 font-mono">/ month</span>
+            </div>
 
-        <!-- Pro Tier -->
-        <div class="bg-amber-50/50 border-2 border-amber-400 p-8 rounded-3xl space-y-6 relative shadow-lg">
-          <div class="absolute top-4 right-4 bg-amber-500 text-zinc-950 font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase">Most Popular</div>
-          <div>
-            <h3 class="text-lg font-bold font-heading text-zinc-900">Pro Merchant</h3>
-            <p class="text-xs text-zinc-500 mt-1">For active ecommerce stores & high-volume Telegram bots.</p>
+            <ul class="space-y-3 text-xs text-slate-800 pt-4 border-t border-slate-100 font-medium">
+              <li class="flex items-center gap-2"><i class="ph-bold ph-check-circle text-emerald-600 text-sm"></i> <strong>Unlimited</strong> receipt verifications (zero caps)</li>
+              <li class="flex items-center gap-2"><i class="ph-bold ph-check-circle text-emerald-600 text-sm"></i> <strong>Unmetered</strong> API rate limits (zero throttle)</li>
+              <li class="flex items-center gap-2"><i class="ph-bold ph-check-circle text-emerald-600 text-sm"></i> Top priority egress lane (&lt; 1s verification)</li>
+              <li class="flex items-center gap-2"><i class="ph-bold ph-check-circle text-emerald-600 text-sm"></i> Real-time HMAC SHA-256 Webhook dispatcher</li>
+              <li class="flex items-center gap-2"><i class="ph-bold ph-check-circle text-emerald-600 text-sm"></i> 24/7 Priority developer support & SLA</li>
+            </ul>
           </div>
-          <div class="flex items-baseline gap-1">
-            <span class="text-4xl font-black font-heading text-zinc-950">Custom</span>
-            <span class="text-xs text-zinc-500">/ volume-based</span>
-          </div>
-          <ul class="space-y-2.5 text-xs text-zinc-700 font-medium">
-            <li class="flex items-center gap-2"><i class="ph-bold ph-check text-amber-600"></i> Unlimited verifications</li>
-            <li class="flex items-center gap-2"><i class="ph-bold ph-check text-amber-600"></i> Dedicated Webhook Retries & Logs</li>
-            <li class="flex items-center gap-2"><i class="ph-bold ph-check text-amber-600"></i> CSV Ledger Accounting Exports</li>
-            <li class="flex items-center gap-2"><i class="ph-bold ph-check text-amber-600"></i> Priority Gateway Routing & 99.98% SLA</li>
-          </ul>
-          <a href="/admin" class="block w-full text-center py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs transition shadow-sm">Launch Pro Workspace</a>
+
+          <button onclick="handlePricingUnlimitedClick()" class="btn-dark mt-6 w-full py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 font-bold shadow-md">
+            <span>Get Unlimited Plan (4,000 ETB)</span>
+            <i class="ph-bold ph-lightning text-xs text-amber-400"></i>
+          </button>
         </div>
 
       </div>
@@ -484,86 +464,148 @@ bot.launch();</code></pre>
 
   </main>
 
-  <!-- FOOTER -->
-  <footer class="border-t border-zinc-200 bg-zinc-50/80 py-12 relative z-10">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
-      <div class="flex items-center gap-2">
-        <span class="font-bold text-zinc-900 font-heading">Chek Engine</span>
-        <span>•</span>
-        <span>Ethio Telecom & CBE Verification Hub</span>
+  <!-- 8. AUTH DIALOG -->
+  <div id="authModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white border border-slate-200 p-6 sm:p-8 rounded-2xl max-w-md w-full animate-in fade-in zoom-in-95 duration-150 relative text-left shadow-2xl">
+      
+      <button onclick="closeAuthModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700"><i class="ph ph-x text-lg"></i></button>
+
+      <!-- Receipt Logo -->
+      <div class="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center p-2 mb-3 shadow-2xs">
+        <svg class="w-5 h-5 text-slate-950" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor">
+          <path d="M142 66.2C150.5 62.3 160.5 63.7 167.6 69.8L208 104.4L248.4 69.8C257.4 62.1 270.7 62.1 279.6 69.8L320 104.4L360.4 69.8C369.4 62.1 382.6 62.1 391.6 69.8L432 104.4L472.4 69.8C479.5 63.7 489.5 62.3 498 66.2C506.5 70.1 512 78.6 512 88L512 552C512 561.4 506.5 569.9 498 573.8C489.5 577.7 479.5 576.3 472.4 570.2L432 535.6L391.6 570.2C382.6 577.9 369.4 577.9 360.4 570.2L320 535.6L279.6 570.2C270.6 577.9 257.3 577.9 248.4 570.2L208 535.6L167.6 570.2C160.5 576.3 150.5 577.7 142 573.8C133.5 569.9 128 561.4 128 552L128 88C128 78.6 133.5 70.1 142 66.2zM232 200C218.7 200 208 210.7 208 224C208 237.3 218.7 248 232 248L408 248C421.3 248 432 237.3 432 224C432 210.7 421.3 200 408 200L232 200zM208 416C208 429.3 218.7 440 232 440L408 440C421.3 440 432 429.3 432 416C432 402.7 421.3 392 408 392L232 392C218.7 392 208 402.7 208 416zM232 296C218.7 296 208 306.7 208 320C208 333.3 218.7 344 232 344L408 344C421.3 344 432 333.3 432 320C432 306.7 421.3 296 408 296L232 296z"/>
+        </svg>
       </div>
 
+      <h2 class="text-xl font-bold font-display text-slate-900">Chek Platform</h2>
+      <p id="modalAuthSubtitle" class="text-xs text-slate-500 mt-0.5 mb-4">Telebirr & CBE Payment Verification Infrastructure</p>
+
+      <!-- Auth Tabs -->
+      <div class="flex border border-slate-200 rounded-xl p-1 bg-slate-100 text-xs mb-4 font-semibold">
+        <button onclick="setAuthModalTab('login')" id="modalTabLogin" class="flex-1 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition font-bold">Sign In</button>
+        <button onclick="setAuthModalTab('signup')" id="modalTabSignup" class="flex-1 py-1.5 rounded-lg text-slate-500 hover:text-slate-900 transition font-medium">Create Account</button>
+      </div>
+
+      <!-- Sign In Form -->
+      <form id="formAuthLogin" onsubmit="handleModalLogin(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+          <input id="modalLoginEmail" type="email" required placeholder="merchant@domain.et" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-sans outline-none focus:bg-white focus:border-slate-900" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Password</label>
+          <input id="modalLoginPassword" type="password" required placeholder="••••••••" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-sans outline-none focus:bg-white focus:border-slate-900" />
+        </div>
+        <p id="modalLoginError" class="text-xs text-rose-600 font-medium hidden text-center"></p>
+        <button type="submit" id="btnModalLoginSubmit" class="btn-dark w-full py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 font-bold shadow-sm">
+          <i class="ph-bold ph-lock-key-open"></i>
+          <span>Sign In to Console</span>
+        </button>
+      </form>
+
+      <!-- Sign Up Form -->
+      <form id="formAuthSignup" onsubmit="handleModalSignup(event)" class="space-y-3 hidden">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Business / Store Name</label>
+          <input id="modalSignupBizName" type="text" placeholder="e.g. Addis Checkout Bot" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-sans outline-none focus:bg-white focus:border-slate-900" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+          <input id="modalSignupEmail" type="email" required placeholder="you@store.et" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-sans outline-none focus:border-slate-900" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Password (min 8 characters)</label>
+          <input id="modalSignupPassword" type="password" minlength="8" required placeholder="Create secure password" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-sans outline-none focus:border-slate-900" />
+        </div>
+        <p id="modalSignupError" class="text-xs text-rose-600 font-medium hidden text-center"></p>
+        <button type="submit" id="btnModalSignupSubmit" class="btn-dark w-full py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 font-bold shadow-sm">
+          <i class="ph-bold ph-user-plus"></i>
+          <span>Create Account (250 checks/mo free)</span>
+        </button>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- 9. COMMAND PALETTE -->
+  <div id="cmdPaletteOverlay" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-start justify-center pt-20 p-4 hidden">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden text-left">
+      <div class="flex items-center px-4 border-b border-slate-200">
+        <i class="ph ph-magnifying-glass text-slate-400 text-base mr-2"></i>
+        <input id="cmdPaletteInput" oninput="filterCmdList()" type="text" placeholder="Search Chek docs, endpoints, webhooks..." class="w-full py-3.5 text-xs text-slate-900 outline-none font-sans bg-transparent" />
+        <span class="text-[10px] font-mono text-slate-400 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">ESC</span>
+      </div>
+      
+      <div id="cmdResultsList" class="p-2 max-h-80 overflow-y-auto space-y-1 text-xs">
+        <a href="#api-reference" onclick="closeCmdPalette()" class="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 transition text-slate-700">
+          <div class="flex items-center gap-2.5">
+            <i class="ph-bold ph-code text-slate-500 text-sm"></i>
+            <div>
+              <p class="font-bold text-slate-900 text-xs">POST /verify API Reference</p>
+              <p class="text-[11px] text-slate-500">cURL, Node.js, Python SDK specifications</p>
+            </div>
+          </div>
+          <span class="text-[10px] font-mono text-slate-400">API</span>
+        </a>
+
+        <a href="#webhooks" onclick="closeCmdPalette()" class="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 transition text-slate-700">
+          <div class="flex items-center gap-2.5">
+            <i class="ph-bold ph-webhooks-logo text-slate-500 text-sm"></i>
+            <div>
+              <p class="font-bold text-slate-900 text-xs">HMAC Webhooks</p>
+              <p class="text-[11px] text-slate-500">Event signatures and delivery dispatch</p>
+            </div>
+          </div>
+          <span class="text-[10px] font-mono text-slate-400">Webhooks</span>
+        </a>
+
+        <a href="#pricing" onclick="closeCmdPalette()" class="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 transition text-slate-700">
+          <div class="flex items-center gap-2.5">
+            <i class="ph-bold ph-tag text-slate-500 text-sm"></i>
+            <div>
+              <p class="font-bold text-slate-900 text-xs">Pricing Tiers</p>
+              <p class="text-[11px] text-slate-500">Free 250 checks/mo & 4,000 ETB Unlimited Plan</p>
+            </div>
+          </div>
+          <span class="text-[10px] font-mono text-slate-400">Pricing</span>
+        </a>
+
+        <a href="/admin" class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 transition text-slate-700">
+          <div class="flex items-center gap-2.5">
+            <i class="ph-bold ph-lock-key text-purple-600 text-sm"></i>
+            <div>
+              <p class="font-bold text-slate-900 text-xs">Merchant Console (/admin)</p>
+              <p class="text-[11px] text-slate-500">Manage API keys, Webhooks, and Ledger</p>
+            </div>
+          </div>
+          <span class="text-[10px] font-mono text-slate-400">Console</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10. FOOTER -->
+  <footer class="border-t border-slate-200 bg-white py-8 relative z-10 text-xs text-slate-500">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2.5">
+        <div class="w-5 h-5 rounded bg-amber-500 text-slate-950 flex items-center justify-center p-1 shadow-2xs">
+          <svg class="w-3.5 h-3.5 text-slate-950" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor">
+            <path d="M142 66.2C150.5 62.3 160.5 63.7 167.6 69.8L208 104.4L248.4 69.8C257.4 62.1 270.7 62.1 279.6 69.8L320 104.4L360.4 69.8C369.4 62.1 382.6 62.1 391.6 69.8L432 104.4L472.4 69.8C479.5 63.7 489.5 62.3 498 66.2C506.5 70.1 512 78.6 512 88L512 552C512 561.4 506.5 569.9 498 573.8C489.5 577.7 479.5 576.3 472.4 570.2L432 535.6L391.6 570.2C382.6 577.9 369.4 577.9 360.4 570.2L320 535.6L279.6 570.2C270.6 577.9 257.3 577.9 248.4 570.2L208 535.6L167.6 570.2C160.5 576.3 150.5 577.7 142 573.8C133.5 569.9 128 561.4 128 552L128 88C128 78.6 133.5 70.1 142 66.2zM232 200C218.7 200 208 210.7 208 224C208 237.3 218.7 248 232 248L408 248C421.3 248 432 237.3 432 224C432 210.7 421.3 200 408 200L232 200zM208 416C208 429.3 218.7 440 232 440L408 440C421.3 440 432 429.3 432 416C432 402.7 421.3 392 408 392L232 392C218.7 392 208 402.7 208 416zM232 296C218.7 296 208 306.7 208 320C208 333.3 218.7 344 232 344L408 344C421.3 344 432 333.3 432 320C432 306.7 421.3 296 408 296L232 296z"/>
+          </svg>
+        </div>
+        <span class="font-bold text-slate-900 font-display">Chek</span>
+        <span>•</span>
+        <span>Ethiopian Payment Verification Engine</span>
+      </div>
       <div class="flex items-center gap-6 font-medium">
-        <a href="/docs" class="hover:text-zinc-900 transition">Documentation</a>
-        <a href="/admin" class="hover:text-zinc-900 transition">Admin Console</a>
-        <a href="https://github.com" class="hover:text-zinc-900 transition">GitHub</a>
+        <a href="#api-reference" class="hover:text-slate-900 transition">API</a>
+        <a href="#webhooks" class="hover:text-slate-900 transition">Webhooks</a>
+        <a href="/status" class="hover:text-slate-900 transition">Status</a>
+        <a href="/admin" class="hover:text-slate-900 transition">Console</a>
       </div>
     </div>
   </footer>
 
-  <script>
-    function setStudioPreset(preset) {
-      if (preset === 'telebirr') {
-        document.getElementById('heroInput').value = 'DHS78S7FQN';
-      } else if (preset === 'cbe') {
-        document.getElementById('heroInput').value = 'hfHCxGIt9KKGN61d55FL';
-      } else if (preset === 'sms') {
-        document.getElementById('heroInput').value = 'You have received 200.00 ETB from Eyuel Getachew Angassa (2519****7061) on 28/08/2026 17:45:59. Transaction ID: DHS78S7FQN. Your new balance is 1,450.00 ETB.';
-      }
-      runHeroVerify();
-    }
-
-    async function runHeroVerify() {
-      const input = document.getElementById('heroInput').value.trim();
-      if (!input) return alert('Enter a transaction reference or paste SMS text');
-
-      const btn = document.getElementById('btnHeroVerify');
-      btn.innerHTML = '<i class="ph ph-spinner animate-spin text-base"></i><span>Verifying Gateway...</span>';
-      btn.disabled = true;
-
-      const startTime = performance.now();
-
-      try {
-        const res = await fetch('/admin/api/verify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': 'chek_admin_super_secret_key_902104'
-          },
-          body: JSON.stringify({ input })
-        });
-        const data = await res.json();
-        const duration = Math.round(performance.now() - startTime);
-
-        document.getElementById('heroTime').innerText = duration + 'ms';
-        document.getElementById('heroDurationBadge').classList.remove('hidden');
-        document.getElementById('heroResultBox').classList.remove('hidden');
-        document.getElementById('heroJsonOutput').innerText = JSON.stringify(data, null, 2);
-
-        const pill = document.getElementById('heroStatusPill');
-        if (data.success) {
-          pill.className = 'text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200';
-          pill.innerText = 'VERIFIED';
-        } else {
-          pill.className = 'text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200';
-          pill.innerText = 'FAILED: ' + (data.httpStatus || 404);
-        }
-      } catch (err) {
-        alert('Verification error: ' + err.message);
-      } finally {
-        btn.innerHTML = '<i class="ph-bold ph-lightning text-base"></i><span>Execute Live Verification</span>';
-        btn.disabled = false;
-      }
-    }
-
-    function showCodeTab(tab) {
-      ['curl', 'node', 'python', 'bot'].forEach(t => {
-        document.getElementById('code-' + t).classList.add('hidden');
-        document.getElementById('tab-code-' + t).className = 'px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white font-semibold';
-      });
-      document.getElementById('code-' + tab).classList.remove('hidden');
-      document.getElementById('tab-code-' + tab).className = 'px-3 py-1.5 rounded-lg font-bold bg-amber-500 text-zinc-950';
-    }
-  </script>
+  <script src="/app.js"></script>
 </body>
 </html>
